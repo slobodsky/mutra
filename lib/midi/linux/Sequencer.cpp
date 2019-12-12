@@ -5,8 +5,11 @@ using std::flush;
 #include <sys/time.h>
 using std::cerr;
 using std::endl;
+using std::cout;
 
 typedef unsigned char BYTE;
+
+Sequencer* Sequencer::create_instance() { return new ALSASequencer( cout ); } // create_default()
 
 LinuxSequencer::LinuxSequencer( ostream& Device0 ) : Device( Device0 )
 {} // конструктор по девайсу
@@ -95,7 +98,7 @@ void LinuxSequencer::wait_for_usec( double WaitMicroSecs )
   TotalDiff += Diff;
 } // wait_for_usec( double )
 
-ALSASequencer::ALSASequencer( ostream& Device0 ) : LinuxSequencer( Device0 ), OutClient( 128 ), OutPort( 0 )
+ALSASequencer::ALSASequencer( ostream& Device0 = std::cout ) : LinuxSequencer( Device0 ), OutClient( 128 ), OutPort( 0 )
 {
   int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 );
   if( Err < 0 ) cerr << "Can't open sequencer." << Err << endl;

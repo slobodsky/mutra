@@ -21,6 +21,7 @@ protected:
   unsigned Tempo;
   int Track;		// Текущая дорожка
 public:
+  static Sequencer* create_instance();
   Sequencer() : Start( 0 ), Time( 0 ), Clock( 0 ), Division( 120 ), Tempo( 500000 ), TempoTime( 0 ), TempoClock( 0 ), Track( 0 ) {}
   virtual ~Sequencer() {}
 
