@@ -1,4 +1,4 @@
-#include <MIDIFileReader.hpp>
+#include <midi_core.hpp>
 using std::cout;
 using std::cerr;
 using std::endl;

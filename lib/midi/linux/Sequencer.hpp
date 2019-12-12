@@ -1,6 +1,6 @@
 #ifndef LINUX_SEQUENCER_HPP
 #define LINUX_SEQUENCER_HPP
-#include "../MIDIFileReader.hpp"
+#include "../midi_core.hpp"
 #include <iostream>
 #include <alsa/asoundlib.h>
 

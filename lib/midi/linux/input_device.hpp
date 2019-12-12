@@ -1,4 +1,4 @@
-#include "../MIDIFileReader.hpp"
+#include "../midi_core.hpp"
 #include <thread>
 #include <fstream>
 
