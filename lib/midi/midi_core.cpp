@@ -21,7 +21,7 @@ using std::stringstream;
 using std::vector;
 #include <cstring>
 using std::memcpy;
-#include "MIDIFileReader.hpp"
+#include "midi_core.hpp"
 
 void Event::print( ostream& Stream ) { Stream << "Пустое сообщение"; }
 
