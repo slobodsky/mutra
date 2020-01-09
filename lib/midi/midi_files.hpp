@@ -1,0 +1,96 @@
+#ifndef MUTRA_MIDI_FILES_HPP
+#define MUTRA_MIDI_FILES_HPP
+#include "midi_events.hpp"
+
+/** \file
+ * Объекты для работы с MIDI-файлами (чтение/запись).
+ */
+namespace MuTraMIDI {
+  //! Список событий, происходящих в определённое время.
+  class EventsList
+  {
+    unsigned Time; // Время (в единицах MIDI)
+    std::vector<Event*> Events;
+  public:
+    EventsList( unsigned Time0 ) : Time( Time0 ) {}
+    ~EventsList()
+    {
+      while( !Events.empty() )
+      {
+	delete Events.back();
+	Events.pop_back();
+      }
+    } // Деструктор (не полиморфный)
+    void add( Event* NewEvent ) { Events.push_back( NewEvent ); }
+    unsigned time() const { return Time; }
+    std::vector<Event*>& events() { return Events; }
+
+    void print( std::ostream& Stream );
+    void play( Sequencer& S );
+    int write( std::ostream& File, unsigned Clock ) const;
+  }; // EventsList
+
+  //! Дорожка в MIDI-файле
+  class MIDITrack
+  {
+    std::vector<EventsList*> Events;
+  public:
+    ~MIDITrack()
+    {
+      while( !Events.empty() )
+      {
+	delete Events.back();
+	Events.pop_back();
+      }
+    }
+    std::vector<EventsList*>& events() { return Events; }
+    void print( std::ostream& Stream );
+    void play( Sequencer& Seq );
+    bool write( std::ostream& File ) const;
+  }; // MIDITrack
+
+  //! MIDI-последовательность (состоящая из дорожек)
+  class MIDISequence
+  {
+#ifdef MUTRA_SHOW_DISABLED
+  public:
+    static int put_int( std::ostream& File, int Size, int Number );
+    static int put_var( std::ostream& File, int Number );
+    static int get_int( std::istream& Stream, int Size );
+    static int get_var( std::istream& Stream, int& ToGo );
+#endif // MUTRA_SHOW_DISABLED
+  protected:
+    std::vector<MIDITrack*> Tracks;
+
+    short Type;
+    short TracksNum;
+    short Division;
+#ifdef MUTRA_SHOW_DISABLED
+    void get_meta( std::istream& Stream, int& ToGo );
+    void get_sysex( std::istream& Stream, int& ToGo, bool AddF0 = true );
+    void get_event( std::istream& Stream, int& ToGo, unsigned char& Status, unsigned char FirstByte );
+#endif // MUTRA_SHOW_DISABLED
+    void add( Event* NewEvent ) { Tracks.back()->events().back()->add( NewEvent ); }
+  public:
+    MIDISequence( std::string FileName );
+    MIDISequence() : Type( 0 ), TracksNum( 0 ), Division( 120 ) {}
+    virtual ~MIDISequence()
+    {
+      while( !Tracks.empty() )
+      {
+	delete Tracks.back();
+	Tracks.pop_back();
+      }
+    }
+    int division() const { return Division; }
+    int tracks_num() const { return TracksNum; }
+    std::vector<MIDITrack*>& tracks() { return Tracks; }
+    void print( std::ostream& Stream );
+#ifdef MUTRA_SHOW_DISABLED
+    virtual void parse( unsigned Data, int Clock = -1, int TrackNum = -1 );
+#endif
+    void play( Sequencer& S );
+    bool write( std::ostream& File ) const;
+  }; // MIDISequence
+} // MuTraMIDI
+#endif // MUTRA_MIDI_FILES_HPP

@@ -2,11 +2,16 @@
 #include <thread>
 #include <fstream>
 
-class FileInputDevice : public MIDIInputDevice
-{
-public:
-  FileInputDevice( std::string FileName );
-  void process();
-private:
-  std::ifstream Str;
-}; // FileInputDevice
+namespace MuTraMIDI {
+  class FileInputDevice : public InputDevice
+  {
+  public:
+    FileInputDevice( std::string FileName );
+#if 0
+    void process();
+#endif
+    void start();
+  private:
+    std::ifstream Str;
+  }; // FileInputDevice
+} // MuTraMIDI

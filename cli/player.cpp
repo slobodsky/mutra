@@ -1,11 +1,13 @@
-#include <midi_core.hpp>
+#include <midi_files.hpp>
 using std::cout;
 using std::cerr;
 using std::endl;
+using MuTraMIDI::Sequencer;
+using MuTraMIDI::MIDISequence;
 
 int main( int argc, char* argv[] )
 {
-  Sequencer* Seq = Sequencer::create_instance();
+  Sequencer* Seq = Sequencer::get_instance();
   for( int I = 1; I < argc; I++ )
   {
     MIDISequence Play( argv[ I ] );
