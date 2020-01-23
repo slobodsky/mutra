@@ -66,6 +66,59 @@ namespace MuTraMIDI {
     return Result;
   } // put_var( ostream&, int )
   
+  void InStream::read( unsigned char* Buffer, size_t Length ) {
+    for( size_t I = 0; I < Length; ++I ) Buffer[ I ] = get();
+    LastCount = Length;
+  } // read( unsigned char*, size_t )
+  void InStream::skip( size_t Length ) {
+    for( size_t I = 0; I < Length; ++I ) get();
+    LastCount = Length;
+  } // skip( size_t )
+  int InStream::get_int( int Length ) {
+    int Val = 0;
+    for( int I = 0; I < Length; ++I ) {
+      Val <<= 8;
+      Val |= get();
+    }
+    LastCount = Length;
+    return Val;
+  } // get_int( int )
+  int InStream::get_var() {
+    size_t Length = 0;
+    int Val = 0;
+    while( true ) {
+      Val <<= 7;
+      uint8_t Ch = get();
+      Val |= Ch & ~0x80;
+      ++Length;
+      if( !( Ch & 0x80 ) ) break;
+    }
+    LastCount = Length;
+    return Val;
+  } // get_var()
+  uint8_t InStream::get_status() {
+    uint8_t In = peek();
+    if( In & 0x80 ) {
+      Status = In;
+      LastCount = 1;
+      get();
+    }
+    else { // Running status
+      if( ( Status & 0xF0 ) == 0xF0 ) throw MIDIException( "Bad status byte and no running status." ); // Sysx & meta can't have running status
+      LastCount = 0;
+    }
+    return Status;
+  } // get_status()
+  Event* InStream::get_event() {
+    size_t Count = 0;
+    Event* Ev = Event::get( *this, Count );
+    LastCount = Count;
+    return Ev;
+  } // get_event()
+
+  uint8_t FileInStream::get() { return Stream.get(); }
+  uint8_t FileInStream::peek() { return Stream.peek(); }
+  
   void Event::print( ostream& Stream ) { Stream << "Пустое сообщение"; }
 
   void InputDevice::Client::event_received( Event& /*Ev*/ ) {}
@@ -96,30 +149,23 @@ namespace MuTraMIDI {
   } // remove_client( Client* )
   void InputDevice::event_received( Event& Ev ) { for( int I = 0; I < Clients.size(); ++I ) if( Clients[ I ] ) Clients[ I ]->event_received( Ev ); }
  
-  Event* Event::get( istream& Str, int& ToGo, unsigned char& Status ) {
+  Event* Event::get( InStream& Str, size_t& Count ) {
     //! \todo Parse to MIDI events. Create pluggable parsers (the parser itself detects if it can parse this message.
-    unsigned char In = Str.get();
-    cout << "Get event. Status " << hex << int( Status ) << ", In " << int( In ) << " ToGo " << dec << ToGo << endl;
-    if( !Str.good() ) return nullptr; //! \todo Report errors
-    if( --ToGo <= 0 ) return nullptr;
-    if( In & 0x80 ) Status = In;
-    else { // Running status
-      if( ( Status & 0xF0 ) == 0xF0 ) return nullptr; // Sysx & meta can't have running status
-      ++ToGo;
-      Str.unget();
-    }
+    uint8_t Status = Str.get_status();
+    Count = Str.count();
+    // cout << "Get event. Status " << hex << int( Status ) << dec << endl;
     switch( Status ) {
     case SysEx:
     case SysExEscape:
-      return SysExEvent::get( Str, ToGo, Status );
+      return SysExEvent::get( Str, Count );
     case MetaCode:
-      return MetaEvent::get( Str, ToGo, Status );
+      return MetaEvent::get( Str, Count );
     default:
-      return ChannelEvent::get( Str, ToGo, Status );
+      return ChannelEvent::get( Str, Count );
     }
-    cerr << "Unknown event " << hex << Status << " in " << In << " to go " << dec << ToGo << endl;
+    cerr << "Unknown event " << hex << Status << " last count " << dec << endl;
     return nullptr;
-  } // get_event( istream&, int& unsigned char& )
+  } // get_event( InStream&, size_t& )
 
 #if 0
   int InputDevice::parse( const unsigned char* Buffer, size_t Count ) {

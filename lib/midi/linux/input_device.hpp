@@ -6,12 +6,14 @@ namespace MuTraMIDI {
   class FileInputDevice : public InputDevice
   {
   public:
-    FileInputDevice( std::string FileName );
+    FileInputDevice( const std::string& FileName0 );
 #if 0
     void process();
 #endif
     void start();
   private:
+    std::string FileName;
     std::ifstream Str;
+    FileInStream Stream;
   }; // FileInputDevice
 } // MuTraMIDI

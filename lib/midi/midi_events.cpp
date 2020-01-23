@@ -66,33 +66,41 @@ namespace MuTraMIDI {
     return nullptr;
   } // parse( unsigned char&*, int& )
 #endif // 0
-  Event* ChannelEvent::get( istream& Str, int& ToGo, unsigned char& Status ) {
-    if( ToGo < 1 || Str.eof() || !Str.good() ) return nullptr;
-    unsigned char In = Str.get();
-    if( In & 0x80 ) { // Status byte (иначе - running Status или вызов из надкласса, когда этот байт уже считан)
-      Status = In;
-      In = Str.get();
-      --ToGo;
-    }
+  Event* ChannelEvent::get( InStream& Str, size_t& Count ) {
+    uint8_t Status = Str.status();
+#if 0
     cout << "Get Channel event. Status " << hex << int(Status) << " in " << int(In) << " to go " << dec << ToGo << endl;
-    unsigned char EventCode = Status & EventMask;
+#endif
+    uint8_t EventCode = Status & EventMask;
     int Channel = Status & ChannelMask;
     switch( EventCode ) { // В зависимости от сообщения
     case NoteOff: // Note off
     case NoteOn: // Note on
-    case AfterTouch: // After touch
-      --ToGo;
-      return new NoteEvent( ChannelEvent::StatusCode( EventCode ), Channel, In, Str.get() );
-    case ControlChange:
-      --ToGo;
-      return new ControlChangeEvent( Channel, In, Str.get() );
-    case ProgramChange: return new ProgramChangeEvent( Channel, In );
-    case ChannelAfterTouch: return new ChannelAfterTouchEvent( Channel, In );
-    case PitchBend:
-      {
-	int Bend = In;
+    case AfterTouch: { // After touch
+      //! \todo Maybe check if note & velocity are in [0-127] (in other cases too)
+      int Note = Str.get();
+      int Velocity = Str.get();
+      Count += 2;
+      return new NoteEvent( ChannelEvent::StatusCode( EventCode ), Channel, Note, Velocity );
+    }
+    case ControlChange: {
+      int Control = Str.get();
+      int Value = Str.get();
+      Count += 2;
+      return new ControlChangeEvent( Channel, Control, Value );
+    }
+    case ProgramChange: {
+      ++Count;
+      return new ProgramChangeEvent( Channel, Str.get() );
+    }
+    case ChannelAfterTouch: {
+      ++Count;
+      return new ChannelAfterTouchEvent( Channel, Str.get() );
+    }
+    case PitchBend: {
+	int Bend = Str.get();
 	Bend |= Str.get() << 7;
-	--ToGo;
+	Count += 2;
 	return new PitchBendEvent( Channel, Bend );
       }
     }
@@ -242,16 +250,18 @@ namespace MuTraMIDI {
     return nullptr;
   } // parse( const unsigned char*&, int& )
 #endif
-  Event* MetaEvent::get( istream& Stream, int& ToGo, unsigned char& Status ) {
-    unsigned char Type = Stream.get();
-    ToGo--;
-    int Length = get_var( Stream, ToGo );
-    ToGo -= Length;
+  Event* MetaEvent::get( InStream& Stream, size_t& Count ) {
+    uint8_t Type = Stream.get();
+    ++Count;
+    int Length =  Stream.get_var();
+    Count += Stream.count() + Length;
+#if 0
     cout << "Get meta event " << int( Status ) << " type " << Type << " length " << Length << " to go " << ToGo << endl;
+#endif
     switch( Type )
     {
     case MetaEvent::SequenceNumber: // Sequence Number
-      return new SequenceNumberEvent( get_int( Stream, Length ) );
+      return new SequenceNumberEvent( Stream.get_int( Length ) );
     // Different text events
     case MetaEvent::Text: // Text event
     case MetaEvent::Copyright: // Copyright
@@ -262,49 +272,41 @@ namespace MuTraMIDI {
     case MetaEvent::CuePoint: // Cue point
       return TextEvent::get_text( Stream, Length, Type );
     case MetaEvent::ChannelPrefix: // MIDI Channel Prefix
+      //! \note Length have to be 1. Maybe check it. (And other fixed size events below too.)
       return new ChannelPrefixEvent( Stream.get() );
     case MetaEvent::TrackEnd: // Track end
       return new TrackEndEvent();
     case MetaEvent::Tempo: // Tempo (us/quarter)
-      return new TempoEvent( get_int( Stream, Length ) );
-    case MetaEvent::SMTPEOffset: // SMTPE offset
-      {
-	char Hour		= Stream.get();
-	char Min		= Stream.get();
-	char Sec		= Stream.get();
-	char Frames		= Stream.get();
-	char Hundredths	= Stream.get();
+      return new TempoEvent( Stream.get_int( Length ) );
+    case MetaEvent::SMTPEOffset: { // SMTPE offset
+	int Hour	= Stream.get();
+	int Min		= Stream.get();
+	int Sec		= Stream.get();
+	int Frames	= Stream.get();
+	int Hundredths	= Stream.get();
 	return new SMTPEOffsetEvent( Hour, Min, Sec, Frames, Hundredths );
       }
-    case MetaEvent::TimeSignature: // Time signature
-      {
-	char Numerator		= Stream.get();
-	char Denominator	= Stream.get();
-	char ClickClocks	= Stream.get();
-	char ThirtySeconds	= Stream.get();
+    case MetaEvent::TimeSignature: { // Time signature
+	int Numerator		= Stream.get();
+	int Denominator		= Stream.get();
+	int ClickClocks		= Stream.get();
+	int ThirtySeconds	= Stream.get();
 	return new TimeSignatureEvent( Numerator, Denominator, ClickClocks, ThirtySeconds );
       }
-    case MetaEvent::KeySignature: // Key signature
-      {
-	char Tonal	= Stream.get();
-	char Minor	= Stream.get();
+    case MetaEvent::KeySignature: { // Key signature
+        int Tonal	= Stream.get();
+	int Minor	= Stream.get();
 	return new KeySignatureEvent( Tonal, Minor != 0 );
       }
-    case MetaEvent::SequencerMeta: // Sequencer Meta-event
-      { //! \todo Maybe combine with unknown meta event to remove code duplication
-	unsigned char* Data = new unsigned char[ Length ];
-	Stream.read( (char*)Data, Length );
-	return new SequencerMetaEvent( Length, Data );
-      }
-    default:
-      {
-	unsigned char* Data = new unsigned char[ Length ];
-	Stream.read( (char*)Data, Length );
-	return new UnknownMetaEvent( Type, Length, Data );
-      }
+    default: {
+      unsigned char* Data = new unsigned char[ Length ];
+      Stream.read( Data, Length );
+      if( Type == MetaEvent::SequencerMeta ) return new SequencerMetaEvent( Length, Data ); // Sequencer Meta-event
+      else return new UnknownMetaEvent( Type, Length, Data );
+    }
     }
     return nullptr;
-  } // get( istream&, int&, unsigned char& )
+  } // get( InStream&, size_t& )
   void MetaEvent::print( ostream& Stream ) { Stream << "!!! Неопознанное метасообщение"; }
   void SequenceNumberEvent::print( ostream& Stream ) { Stream << "Sequence Number " << Number; }
   int SequenceNumberEvent::write( std::ostream& File ) const
@@ -335,9 +337,9 @@ namespace MuTraMIDI {
     return Result;
   } // write( std::ostream& ) const
 
-  TextEvent* TextEvent::get_text( istream& Str, int Length, unsigned char Type ) {
+  TextEvent* TextEvent::get_text( InStream& Str, size_t Length, uint8_t Type ) {
     char* Data = new char[ Length+1 ];
-    Str.read( Data, Length );
+    Str.read( (unsigned char*)Data, Length );
     Data[ Length ] = 0;
     string Text = Data;
     delete Data;
@@ -487,12 +489,15 @@ namespace MuTraMIDI {
     return new SysExEvent( Length, Data );
   } // parse( const unsigned char*&, int& )
 #endif
-  Event* SysExEvent::get( istream& Stream, int& ToGo, unsigned char& Status ) {
-    int Length = get_var( Stream, ToGo );
+  Event* SysExEvent::get( InStream& Stream, size_t& Count ) {
+    int Length = Stream.get_var();
+    Count += Stream.count();
+#if 0
     cout << "Get sysex event " << hex << int( Status ) << " length " << dec << Length << " to go " << ToGo << endl;
+#endif
     unsigned char* Data = 0;
     int Offset = 0;
-    if( Status == 0xF0 )
+    if( Stream.status() == 0xF0 )
     {
       Data = new unsigned char[ Length+1 ];
       Data[ 0 ] = 0xF0;
@@ -500,9 +505,10 @@ namespace MuTraMIDI {
     }
     else
       Data = new unsigned char[ Length ];
-    ToGo -= Stream.read( (char*)( Data+Offset ), Length ).gcount();
+    Stream.read( Data+Offset, Length );
+    Count += Length;
     return new SysExEvent( Length, Data );
-  } // get( istream&, int&, unsigned char& )
+  } // get( InStream&, size_t& )
   void SysExEvent::print( ostream& Stream )
   {
     Stream << "SysEx (" << length() << " байт):" << hex << setfill( '0' ) << setw( 2 );

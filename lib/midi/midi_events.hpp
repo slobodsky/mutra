@@ -15,8 +15,7 @@ namespace MuTraMIDI {
     // static Event* parse( const unsigned char*& Pos, int& ToGo );
     //! Get the next event from the (character) stream.
     //! \param Str - input stream
-    //! \param Status - status byte (to keep running status when multiple events have one).
-    static Event* get( std::istream& Str, int& ToGo, unsigned char& Status );
+    static Event* get( InStream& Str, size_t& Count );
     ChannelEvent( StatusCode Status0, int Channel0 ) : Status( Status0 ), Channel( Channel0 ) {}
     StatusCode status() const { return Status; }
     int channel() const { return Channel; }
@@ -100,7 +99,7 @@ namespace MuTraMIDI {
 #if 0
     static Event* parse( const unsigned char*& Pos, int& ToGo );
 #endif
-    static Event* get( std::istream& Str, int& ToGo, unsigned char& Status );
+    static Event* get( InStream& Str, size_t& Count );
     void print( std::ostream& Stream );
   }; // MetaEvent
 
@@ -129,7 +128,7 @@ namespace MuTraMIDI {
   {
     std::string Text;
   public:
-    static TextEvent* get_text( std::istream& Str, int Length, unsigned char Type );
+    static TextEvent* get_text( InStream& Str, size_t Length, uint8_t Type );
     TextEvent( std::string Text0 ) : Text( Text0 ) {}
     std::string text() const { return Text; }
     void print( std::ostream& Stream );
@@ -287,7 +286,7 @@ namespace MuTraMIDI {
 #if 0
     static Event* parse( const unsigned char*& Pos, int& ToGo );
 #endif
-    static Event* get( std::istream& Str, int& ToGo, unsigned char& Status );
+    static Event* get( InStream& Str, size_t& Count );
     SysExEvent( int Length0 = 0, unsigned char* Data0 = 0 ) : Length( Length0 ), Data( Data0 ) {}
     ~SysExEvent() { if( Data ) delete [] Data; }
     int length() const { return Length; }

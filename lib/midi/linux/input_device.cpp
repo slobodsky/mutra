@@ -5,6 +5,7 @@ using std::memcpy;
 using std::cout;
 using std::cerr;
 using std::endl;
+using std::string;
 
 namespace MuTraMIDI {
   InputDevice* InputDevice::get_instance( const std::string& URI ) {
@@ -13,11 +14,11 @@ namespace MuTraMIDI {
     return nullptr;
   } // get_instance( const std::string& )
   
-  FileInputDevice::FileInputDevice( std::string FileName ) : Str( FileName, ios::binary | ios::in ) {}
+  FileInputDevice::FileInputDevice( const string& FileName0 ) : FileName( FileName0 ), Str( FileName, ios::binary | ios::in ), Stream( Str ) {}
   void FileInputDevice::start() {
     unsigned char Status = 0;
     int ToGo = 4*1024*1024; //!< \todo Make this not required for endless streams like midi-devices.
-    while( Event* Ev = Event::get( Str, ToGo, Status ) ) {
+    while( Event* Ev = Stream.get_event() ) {
       Ev->print( cout );
       cout << endl;
     }

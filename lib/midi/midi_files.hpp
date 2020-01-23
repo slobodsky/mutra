@@ -52,24 +52,12 @@ namespace MuTraMIDI {
   //! MIDI-последовательность (состоящая из дорожек)
   class MIDISequence
   {
-#ifdef MUTRA_SHOW_DISABLED
-  public:
-    static int put_int( std::ostream& File, int Size, int Number );
-    static int put_var( std::ostream& File, int Number );
-    static int get_int( std::istream& Stream, int Size );
-    static int get_var( std::istream& Stream, int& ToGo );
-#endif // MUTRA_SHOW_DISABLED
   protected:
     std::vector<MIDITrack*> Tracks;
 
     short Type;
     short TracksNum;
     short Division;
-#ifdef MUTRA_SHOW_DISABLED
-    void get_meta( std::istream& Stream, int& ToGo );
-    void get_sysex( std::istream& Stream, int& ToGo, bool AddF0 = true );
-    void get_event( std::istream& Stream, int& ToGo, unsigned char& Status, unsigned char FirstByte );
-#endif // MUTRA_SHOW_DISABLED
     void add( Event* NewEvent ) { Tracks.back()->events().back()->add( NewEvent ); }
   public:
     MIDISequence( std::string FileName );
@@ -86,9 +74,6 @@ namespace MuTraMIDI {
     int tracks_num() const { return TracksNum; }
     std::vector<MIDITrack*>& tracks() { return Tracks; }
     void print( std::ostream& Stream );
-#ifdef MUTRA_SHOW_DISABLED
-    virtual void parse( unsigned Data, int Clock = -1, int TrackNum = -1 );
-#endif
     void play( Sequencer& S );
     bool write( std::ostream& File ) const;
   }; // MIDISequence

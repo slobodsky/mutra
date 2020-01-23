@@ -8,11 +8,13 @@
 #ifdef minor
 #undef minor
 #endif
+#define MUTRA_DEBUG
 
 /** \file
  * Базовые объекты MIDI-подсистемы. На данный момент это секвенсер (Sequencer), который обеспечивает интерфейс воспроизведения или обработки событий, различные MIDI-сообщения (Event) 
  */
 namespace MuTraMIDI {
+  class Event;
   //! \note Поскольку MIDI-файлы разделены на "чанки" известной длины, а в некоторых сообщениях явно указана длина, нам может быть необходимо знать, сколько байт было получено/записано для значений
   //! переменной длины.
   // static int get_int( const unsigned char* Pos, int Length );
@@ -84,16 +86,53 @@ namespace MuTraMIDI {
     virtual void wait_for_usec( double WaitMicroSecs ) {}
   }; // Sequencer
 
+  //! \brief Абстрактный входной поток. Может быть потоком C++ или буфером в форме указателя (и размера) или контейнера.
+  //! All get... methods throws an exception if there is not enough data or I/O error.
+  class InStream {
+  public:
+    InStream() : Status( 0 ), LastCount( 0 ) {}
+    virtual ~InStream() {}
+    //! Get a single byte.
+    //! \note Don't change the LastCOunt.
+    virtual uint8_t get() = 0;
+    //! Посмотреть первый байт в потоке, не убирая его оттуда (т.е. следующая операция peek/get вернёт тот же байт).
+    virtual uint8_t peek() = 0;
+    virtual void read( unsigned char* Buffer, size_t Length );
+    virtual void skip( size_t Length );
+    int get_int( int Length = 4 );
+    //! Get variable width integer.
+    int get_var();
+    //! Get status byte from the stream. Throws an exception if the first byte is not status & we don't have the running status. Sets last count to 0 for running status.
+    uint8_t get_status();
+    // Return the saved status byte without trying to get it from the stream.
+    uint8_t status() const { return Status; }
+    Event* get_event(); // Здесь, вероятно, граф вызовов будет несколько странным
+    size_t count() const { return LastCount; }
+    //! \note This is intended for use in get-methods in events types etc.
+    void count( size_t& NewCount ) { LastCount = NewCount; }
+  protected:
+    uint8_t Status; //! Running status.
+    size_t LastCount; //! Bytes count of the last get (int/var/event) operation.
+  }; // InStream
+
+  class FileInStream : public InStream {
+  public:
+    FileInStream( std::istream& Str ) : Stream( Str ) {}
+    uint8_t get();
+    uint8_t peek();
+  private:
+    std::istream& Stream;
+  }; // FileInStream
+  
   //! Событие (MIDI или системное). Интерфейс, обеспечивающий чтение/запись в двоичном формате по стандарту MIDI, вывод в текстовый файл (печать) и воспроизведение.
   class Event
   {
   public:
     typedef int64_t TimeMS; //!< Time in milliseconds from the start of the file or session. If < 0 - right now (to play).
-    enum StatusCode { NoteOff = 0x80, NoteOn = 0x90, AfterTouch = 0xA0, ControlChange = 0xB0, ProgramChange = 0xC0, ChannelAfterTouch = 0xD0, PitchBend = 0xE0, SysEx = 0xF0, SysExEscape = 0xF7,
-		      MetaCode = 0xFF, EventMask = 0xF0, ChannelMask = 0x0F };
+    enum StatusCode { Unknown = 0, NoteOff = 0x80, NoteOn = 0x90, AfterTouch = 0xA0, ControlChange = 0xB0, ProgramChange = 0xC0, ChannelAfterTouch = 0xD0, PitchBend = 0xE0,
+		      SysEx = 0xF0, SysExEscape = 0xF7, MetaCode = 0xFF, EventMask = 0xF0, ChannelMask = 0x0F };
     // Функции для чтения и записи событий из/в файла.
-    // static Event* parse( const unsigned char*& Pos, int& ToGo );
-    static Event* get( std::istream& Str, int& ToGo, unsigned char& Status );
+    static Event* get( InStream& Str, size_t& Count );
     Event( TimeMS Time = -1 ) : mTimeMS( Time ) {}
     virtual ~Event() {}
     virtual void print( std::ostream& Stream );
@@ -104,7 +143,7 @@ namespace MuTraMIDI {
     TimeMS mTimeMS; //! Время события в миллисекундах. Начало отсчёта не определено.
   }; // Event
 
-  //! Устройство ввода. Вообще говоря, нам надо бы иметь возможность полуить список всех устройств и их портов (в теории одно устройство может иметь несколько портов) и выбрать нужное с учётом
+  //! Устройство ввода. Вообще говоря, нам надо бы иметь возможность получить список всех устройств и их портов (в теории одно устройство может иметь несколько портов) и выбрать нужное с учётом
   // особенностей системы по расшариванию их между приложениями.
   class InputDevice
   {
@@ -128,9 +167,9 @@ namespace MuTraMIDI {
     virtual void stop() {}
   protected:
     void event_received( Event& Ev );
+#if 0
     //! Parse the incoming buffer and fire events
     //! \return Number of bytes rest at the end because they don't form a MIDI event.
-#if 0
     int parse( const unsigned char* Buffer, size_t Count ); //!< \todo Don't use it here.
 #endif
   private:
@@ -143,7 +182,7 @@ namespace MuTraMIDI {
     std::string Description;
   public:
     MIDIException( std::string Description0 ) : Description( Description0 ) {}
-    std::string description() const { return Description; }
+    std::string what() const { return Description; }
   }; // MIDIException
 } // MuTraMIDI
 #endif // MUTRA_MIDI_CORE_HPP
