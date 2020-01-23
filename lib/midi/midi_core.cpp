@@ -111,6 +111,7 @@ namespace MuTraMIDI {
   } // get_status()
   Event* InStream::get_event() {
     size_t Count = 0;
+    if( eof() ) return nullptr;
     Event* Ev = Event::get( *this, Count );
     LastCount = Count;
     return Ev;
@@ -118,10 +119,11 @@ namespace MuTraMIDI {
 
   uint8_t FileInStream::get() { return Stream.get(); }
   uint8_t FileInStream::peek() { return Stream.peek(); }
+  bool FileInStream::eof() const { return Stream.eof(); }
   
-  void Event::print( ostream& Stream ) { Stream << "Пустое сообщение"; }
+  void Event::print( ostream& Stream ) const { Stream << "Пустое сообщение"; }
 
-  void InputDevice::Client::event_received( Event& /*Ev*/ ) {}
+  void InputDevice::Client::event_received( const Event& /*Ev*/ ) {}
   void InputDevice::Client::connected( InputDevice& /*Dev*/ ) {}
   void InputDevice::Client::disconnected( InputDevice& /*Dev*/ ) {}
   void InputDevice::Client::started( InputDevice& /*Dev*/ ) {}
@@ -147,7 +149,7 @@ namespace MuTraMIDI {
     Clients.erase( find( Clients.begin(), Clients.end(), &Cli ) );
     Cli.disconnected( *this );
   } // remove_client( Client* )
-  void InputDevice::event_received( Event& Ev ) { for( int I = 0; I < Clients.size(); ++I ) if( Clients[ I ] ) Clients[ I ]->event_received( Ev ); }
+  void InputDevice::event_received( const Event& Ev ) { for( int I = 0; I < Clients.size(); ++I ) if( Clients[ I ] ) Clients[ I ]->event_received( Ev ); }
  
   Event* Event::get( InStream& Str, size_t& Count ) {
     //! \todo Parse to MIDI events. Create pluggable parsers (the parser itself detects if it can parse this message.
@@ -166,51 +168,4 @@ namespace MuTraMIDI {
     cerr << "Unknown event " << hex << Status << " last count " << dec << endl;
     return nullptr;
   } // get_event( InStream&, size_t& )
-
-#if 0
-  int InputDevice::parse( const unsigned char* Buffer, size_t Count ) {
-    int ToGo = Count;
-    const unsigned char* Pos = Buffer;
-    while( ToGo > 0 ) {
-      if( Event* Ev = Event::parse( Pos, ToGo ) ) event_received( *Ev );
-    }
-    return Count-ToGo;
-  } // parse( const char*, size_t )
-
-  int Event::get_int( const unsigned char* Pos, int Size )
-  {
-    int Val = 0;
-    for( int I = 0; I < Size; I++ )
-    {
-      Val <<= 8;
-      Val |= Pos[I];
-    }
-    return Val;
-  } // get_int( const unsigned char*, int )
-
-  int Event::get_var( const unsigned char*& Pos, int& ToGo )
-  {
-    int Val = 0;
-    while( ToGo > 0 )
-    {
-      Val <<= 7;
-      Val |= *Pos & ~0x80;
-      ToGo--;
-      if( !( *(Pos++) & 0x80 ) ) return Val;
-    }
-    ToGo--; // Indicate failure.
-    return Val;
-  } // get_var( const unsigned char*&, int& )
-
-  Event* Event::parse( const unsigned char*& Pos, int& ToGo ) {
-    switch( *Pos ) {
-    case 0xF0:
-    case 0xF7:
-      return SysExEvent::parse( Pos, ToGo );
-    case 0xFF: return MetaEvent::parse( Pos, ToGo );
-    default: return MIDIEvent::parse( Pos, ToGo );
-    }
-    return nullptr;
-  } // parse( unsigned char*, int& )
-#endif // 0
 } // MuTraMIDI

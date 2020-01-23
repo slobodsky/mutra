@@ -8,7 +8,7 @@
 #ifdef minor
 #undef minor
 #endif
-#define MUTRA_DEBUG
+//#define MUTRA_DEBUG
 
 /** \file
  * Базовые объекты MIDI-подсистемы. На данный момент это секвенсер (Sequencer), который обеспечивает интерфейс воспроизведения или обработки событий, различные MIDI-сообщения (Event) 
@@ -97,6 +97,7 @@ namespace MuTraMIDI {
     virtual uint8_t get() = 0;
     //! Посмотреть первый байт в потоке, не убирая его оттуда (т.е. следующая операция peek/get вернёт тот же байт).
     virtual uint8_t peek() = 0;
+    virtual bool eof() const { return true; }
     virtual void read( unsigned char* Buffer, size_t Length );
     virtual void skip( size_t Length );
     int get_int( int Length = 4 );
@@ -120,6 +121,7 @@ namespace MuTraMIDI {
     FileInStream( std::istream& Str ) : Stream( Str ) {}
     uint8_t get();
     uint8_t peek();
+    bool eof() const;
   private:
     std::istream& Stream;
   }; // FileInStream
@@ -128,6 +130,7 @@ namespace MuTraMIDI {
   class Event
   {
   public:
+    //! \todo Change to microseconds.
     typedef int64_t TimeMS; //!< Time in milliseconds from the start of the file or session. If < 0 - right now (to play).
     enum StatusCode { Unknown = 0, NoteOff = 0x80, NoteOn = 0x90, AfterTouch = 0xA0, ControlChange = 0xB0, ProgramChange = 0xC0, ChannelAfterTouch = 0xD0, PitchBend = 0xE0,
 		      SysEx = 0xF0, SysExEscape = 0xF7, MetaCode = 0xFF, EventMask = 0xF0, ChannelMask = 0x0F };
@@ -135,12 +138,15 @@ namespace MuTraMIDI {
     static Event* get( InStream& Str, size_t& Count );
     Event( TimeMS Time = -1 ) : mTimeMS( Time ) {}
     virtual ~Event() {}
-    virtual void print( std::ostream& Stream );
-    virtual void play( Sequencer& S ) {}
+    virtual void print( std::ostream& Stream ) const;
+    virtual void play( Sequencer& S ) const {}
     virtual int write( std::ostream& File ) const { return File.good(); }
     TimeMS time() const { return mTimeMS; }
+    void time( TimeMS NewTime ) { mTimeMS = NewTime; }
+    //! \todo StatusCode status() const { return Status; }
   private:
     TimeMS mTimeMS; //! Время события в миллисекундах. Начало отсчёта не определено.
+    //! \todo StatusCode Status; //! Message status (type). For channel messages does not contain channel.
   }; // Event
 
   //! Устройство ввода. Вообще говоря, нам надо бы иметь возможность получить список всех устройств и их портов (в теории одно устройство может иметь несколько портов) и выбрать нужное с учётом
@@ -153,7 +159,7 @@ namespace MuTraMIDI {
     {
     public:
       virtual ~Client() {}
-      virtual void event_received( Event& Ev );
+      virtual void event_received( const Event& Ev ); //!< \note This event can be destroyed immediately after this. If you need it, then clone it.
       virtual void connected( InputDevice& Dev );
       virtual void disconnected( InputDevice& Dev );
       virtual void started( InputDevice& Dev );
@@ -166,12 +172,7 @@ namespace MuTraMIDI {
     virtual void start() {}
     virtual void stop() {}
   protected:
-    void event_received( Event& Ev );
-#if 0
-    //! Parse the incoming buffer and fire events
-    //! \return Number of bytes rest at the end because they don't form a MIDI event.
-    int parse( const unsigned char* Buffer, size_t Count ); //!< \todo Don't use it here.
-#endif
+    void event_received( const Event& Ev );
   private:
     std::vector<Client*> Clients;
   }; // InputDevice

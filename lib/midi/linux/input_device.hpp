@@ -7,9 +7,6 @@ namespace MuTraMIDI {
   {
   public:
     FileInputDevice( const std::string& FileName0 );
-#if 0
-    void process();
-#endif
     void start();
   private:
     std::string FileName;

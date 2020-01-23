@@ -12,60 +12,6 @@ using std::string;
 using std::cerr;
 
 namespace MuTraMIDI {
-#if 0
-  Event* MIDIEvent::parse( const unsigned char*& Pos, int& ToGo ) {
-    unsigned char EventCode = *Pos & 0xF0;
-    int Channel = *Pos & 0x0F;
-    switch( EventCode ) // В зависимости от сообщения
-    {
-    case 0x80: // Note off
-    case 0x90: // Note on
-    case 0xA0: // After touch
-      if( ToGo < 3 ) return nullptr;
-      else {
-	unsigned char Note = Pos[1];
-	unsigned char Velocity = Pos[2];
-	Pos += 3;
-	ToGo -= 3;
-	return new NoteEvent( MIDIEvent::MIDIStatus( EventCode ), Channel, Note, Velocity );
-      }
-    case 0xB0: // Control change
-      if( ToGo < 3 ) return nullptr;
-      else {
-	unsigned char Control = Pos[1];
-	unsigned char Value = Pos[2];
-	Pos += 3;
-	ToGo -= 3;
-	return new ControlChangeEvent( Channel, Control, Value );
-      }
-    case 0xC0: // Program Change
-      if( ToGo < 2 ) return nullptr;
-      else {
-	unsigned char Program = Pos[1];
-	Pos += 2;
-	ToGo -= 2;
-	return new ProgramChangeEvent( Channel, Program );
-      }
-    case 0xD0: // Channel AfterTouch
-      if( ToGo < 2 ) return nullptr;
-      else {
-	unsigned char Value = Pos[1];
-	Pos += 2;
-	ToGo -= 2;
-	return new ChannelAfterTouchEvent( Channel, Value );
-      }
-    case 0xE0: // Pitch bend
-      if( ToGo < 3 ) return nullptr;
-      else {
-	int Bend = Pos[1] | ( Pos[2] << 7 );
-	Pos += 3;
-	ToGo -= 3;
-	return new PitchBendEvent( Channel, Bend );
-      }
-    }
-    return nullptr;
-  } // parse( unsigned char&*, int& )
-#endif // 0
   Event* ChannelEvent::get( InStream& Str, size_t& Count ) {
     uint8_t Status = Str.status();
 #if 0
@@ -107,9 +53,9 @@ namespace MuTraMIDI {
     cerr << "Unknown channel event " << hex << Status << endl;
     return nullptr;
   } // get( istream&, int&, unsigned char& )  
-  void ChannelEvent::print( ostream& Stream ) { Stream << "MIDI сообщение " << hex << Status << ", канал " << dec << Channel; }
+  void ChannelEvent::print( ostream& Stream ) const { Stream << "MIDI сообщение " << hex << Status << ", канал " << dec << Channel; }
   
-  void NoteEvent::print( ostream& Stream )
+  void NoteEvent::print( ostream& Stream ) const
   { 
     switch( Status )
     {
@@ -128,7 +74,7 @@ namespace MuTraMIDI {
     }
     Stream << ", канал " << Channel << ", нота " << Note << ", сила " << Velocity;
   } // print( std::ostream& )
-  void NoteEvent::play( Sequencer& S )
+  void NoteEvent::play( Sequencer& S ) const
   {
     switch( Status )
     {
@@ -150,9 +96,9 @@ namespace MuTraMIDI {
     File.put( Velocity );
     return 3;
   } // write( std::ostream& ) const
-  void ControlChangeEvent::print( ostream& Stream )
+  void ControlChangeEvent::print( ostream& Stream ) const
   { Stream << "Control Change, канал " << Channel << ", контроллер " << Control << ", значение " << Value; }
-  void ControlChangeEvent::play( Sequencer& S ) { S.control_change( Channel, Control, Value ); }
+  void ControlChangeEvent::play( Sequencer& S ) const { S.control_change( Channel, Control, Value ); }
   int ControlChangeEvent::write( std::ostream& File ) const
   {
     File.put( Status | Channel );
@@ -160,24 +106,24 @@ namespace MuTraMIDI {
     File.put( Value );
     return 3;
   } // write( std::ostream& ) const
-  void ProgramChangeEvent::print( ostream& Stream )
+  void ProgramChangeEvent::print( ostream& Stream ) const
   { Stream << "Program Change, канал " << Channel << ", " << Instruments[ Program ] << " (" << Program << ")"; }
-  void ProgramChangeEvent::play( Sequencer& S ) { S.program_change( Channel, Program ); }
+  void ProgramChangeEvent::play( Sequencer& S ) const { S.program_change( Channel, Program ); }
   int ProgramChangeEvent::write( std::ostream& File ) const
   {
     File.put( Status | Channel );
     File.put( Program );
     return 2;
   } // write( std::ostream& ) const
-  void ChannelAfterTouchEvent::print( ostream& Stream ) { Stream << "Channel After Touch, канал " << Channel << ", значение " << Velocity; }
+  void ChannelAfterTouchEvent::print( ostream& Stream ) const { Stream << "Channel After Touch, канал " << Channel << ", значение " << Velocity; }
   int ChannelAfterTouchEvent::write( std::ostream& File ) const
   {
     File.put( Status | Channel );
     File.put( Velocity );
     return 2;
   } // write( std::ostream& ) const
-  void PitchBendEvent::print( ostream& Stream ) { Stream << "Pitch Bend, канал " << Channel << ", значение " << Bend; }
-  void PitchBendEvent::play( Sequencer& S ) { S.pitch_bend( Channel, Bend ); }
+  void PitchBendEvent::print( ostream& Stream ) const { Stream << "Pitch Bend, канал " << Channel << ", значение " << Bend; }
+  void PitchBendEvent::play( Sequencer& S ) const { S.pitch_bend( Channel, Bend ); }
   int PitchBendEvent::write( std::ostream& File ) const
   {
     File.put( Status | Channel );
@@ -186,70 +132,6 @@ namespace MuTraMIDI {
     return 3;
   } // write( std::ostream& ) const
 
-#if 0
-  Event* MetaEvent::parse( const unsigned char*& Pos, int& ToGo ) {
-    int Count = ToGo;
-    const unsigned char* P = Pos;
-    if( Count < 3 ) return nullptr;
-    unsigned char Type = P[1];
-    P += 2;
-    Count -= 2;
-    int Length = get_var( P, Count );
-    if( Count < 0 || Count < Length ) return nullptr;
-    Pos = P + Length;
-    ToGo = Count - Length;
-    switch( Type )
-    {
-    case MetaEvent::SequenceNumber: // Sequence Number
-      return new SequenceNumberEvent( get_int( P, Length ) );
-    case MetaEvent::Text: // Text event
-      return new TextEvent( string( (const char*)P, Length ) );
-    case MetaEvent::Copyright: // Copyright
-      return new CopyrightEvent( string( (const char*)P, Length ) );
-    case MetaEvent::TrackName: // Sequence/track name
-      return new TrackNameEvent( string( (const char*)P, Length ) );
-    case MetaEvent::InstrumentName: // Instrument name
-      return new InstrumentNameEvent( string( (const char*)P, Length ) );
-    case MetaEvent::Lyric: // Lyric
-      return new LyricEvent( string( (const char*)P, Length ) );
-    case MetaEvent::Marker: // Marker
-      return new MarkerEvent( string( (const char*)P, Length ) );
-    case MetaEvent::CuePoint: // Cue point
-      return new CuePointEvent( string( (const char*)P, Length ) );
-    case MetaEvent::ChannelPrefix: // MIDI Channel Prefix
-      //! \todo Check length
-      return new ChannelPrefixEvent( P[0] );
-      break;
-    case MetaEvent::TrackEnd: // Track end
-      //! \todo Check length
-      return new TrackEndEvent();
-    case MetaEvent::Tempo: // Tempo (us/quarter)
-      return new TempoEvent( get_int( P, Length ) );
-    case MetaEvent::SMTPEOffset: // SMTPE offset
-      //! \todo Check length
-      return new SMTPEOffsetEvent( P[0], P[1], P[2], P[3], P[4] );
-    case MetaEvent::TimeSignature: // Time signature
-      //! \todo Check length
-      return new TimeSignatureEvent( P[0], P[1], P[2], P[3] );
-    case MetaEvent::KeySignature: // Key signature
-      //! \todo Check length
-      return new KeySignatureEvent( P[0], P[1] != 0 );
-    case MetaEvent::SequencerMeta: // Sequencer Meta-event
-      { 
-	unsigned char* Data = new unsigned char[ Length ];
-	memcpy( Data, P, Length );
-	return new SequencerMetaEvent( Length, Data );
-      }
-    default:
-      {
-	unsigned char* Data = new unsigned char[ Length ];
-	memcpy( Data, P, Length );
-	return new UnknownMetaEvent( Type, Length, Data );
-      }
-    }
-    return nullptr;
-  } // parse( const unsigned char*&, int& )
-#endif
   Event* MetaEvent::get( InStream& Stream, size_t& Count ) {
     uint8_t Type = Stream.get();
     ++Count;
@@ -307,8 +189,8 @@ namespace MuTraMIDI {
     }
     return nullptr;
   } // get( InStream&, size_t& )
-  void MetaEvent::print( ostream& Stream ) { Stream << "!!! Неопознанное метасообщение"; }
-  void SequenceNumberEvent::print( ostream& Stream ) { Stream << "Sequence Number " << Number; }
+  void MetaEvent::print( ostream& Stream ) const { Stream << "!!! Неопознанное метасообщение"; }
+  void SequenceNumberEvent::print( ostream& Stream ) const { Stream << "Sequence Number " << Number; }
   int SequenceNumberEvent::write( std::ostream& File ) const
   {
     File.put( 0xFF );
@@ -320,7 +202,7 @@ namespace MuTraMIDI {
 
   UnknownMetaEvent::UnknownMetaEvent( int Type0, int Length0, unsigned char* Data0 ) : Type( Type0 ), Length( Length0 ), Data( Data0 ) {} // Конструктор
   UnknownMetaEvent::~UnknownMetaEvent() { if( Data ) delete Data; }
-  void UnknownMetaEvent::print( ostream& Stream )
+  void UnknownMetaEvent::print( ostream& Stream ) const
   {
     Stream << "Неопознанное метасообщение " << setfill( '0' ) << setw( 2 ) << hex << (int)Type << " длиной " << dec << setw( 1 ) << Length
 	   << " байт:" << hex << setfill( '0' );
@@ -354,8 +236,8 @@ namespace MuTraMIDI {
     }
     return nullptr;
   } // get( istream&, int&, unsigned char& )
-  void TextEvent::print( ostream& Stream ) { Stream << "Text: \"" << text() << "\""; }
-  void TextEvent::play( Sequencer& S ) { S.text( text() ); }
+  void TextEvent::print( ostream& Stream ) const { Stream << "Text: \"" << text() << "\""; }
+  void TextEvent::play( Sequencer& S ) const { S.text( text() ); }
   int TextEvent::write_text( std::ostream& File, int Type ) const
   {
     int Length = Text.length();
@@ -365,20 +247,20 @@ namespace MuTraMIDI {
     File << Text;
     return Result;
   } // write_text( std::ostream&, int ) const
-  void CopyrightEvent::print( ostream& Stream ) { Stream << "Copyright: \"" << text() << "\""; }
-  void CopyrightEvent::play( Sequencer& S ) { S.copyright( text() ); }
-  void TrackNameEvent::print( ostream& Stream ) { Stream << "Track Name: \"" << text() << "\""; }
-  void TrackNameEvent::play( Sequencer& S ) { S.name( text() ); }
-  void InstrumentNameEvent::print( ostream& Stream ) { Stream << "Инструмент: \"" << text() << "\""; }
-  void InstrumentNameEvent::play( Sequencer& S ) { S.instrument( text() ); }
-  void LyricEvent::print( ostream& Stream ) { Stream << "Стихи: \"" << text() << "\""; }
-  void LyricEvent::play( Sequencer& S ) { S.lyric( text() ); }
-  void MarkerEvent::print( ostream& Stream ) { Stream << "Маркер: \"" << text() << "\""; }
-  void MarkerEvent::play( Sequencer& S ) { S.marker( text() ); }
-  void CuePointEvent::print( ostream& Stream ) { Stream << "Точка подсказки: \"" << text() << "\""; }
-  void CuePointEvent::play( Sequencer& S ) { S.cue( text() ); }
+  void CopyrightEvent::print( ostream& Stream ) const { Stream << "Copyright: \"" << text() << "\""; }
+  void CopyrightEvent::play( Sequencer& S ) const { S.copyright( text() ); }
+  void TrackNameEvent::print( ostream& Stream ) const { Stream << "Track Name: \"" << text() << "\""; }
+  void TrackNameEvent::play( Sequencer& S ) const { S.name( text() ); }
+  void InstrumentNameEvent::print( ostream& Stream ) const { Stream << "Инструмент: \"" << text() << "\""; }
+  void InstrumentNameEvent::play( Sequencer& S ) const { S.instrument( text() ); }
+  void LyricEvent::print( ostream& Stream ) const { Stream << "Стихи: \"" << text() << "\""; }
+  void LyricEvent::play( Sequencer& S ) const { S.lyric( text() ); }
+  void MarkerEvent::print( ostream& Stream ) const { Stream << "Маркер: \"" << text() << "\""; }
+  void MarkerEvent::play( Sequencer& S ) const { S.marker( text() ); }
+  void CuePointEvent::print( ostream& Stream ) const { Stream << "Точка подсказки: \"" << text() << "\""; }
+  void CuePointEvent::play( Sequencer& S ) const { S.cue( text() ); }
 
-  void ChannelPrefixEvent::print( ostream& Stream ) { Stream << "Префикс канала: " << channel(); }
+  void ChannelPrefixEvent::print( ostream& Stream ) const { Stream << "Префикс канала: " << channel(); }
   int ChannelPrefixEvent::write( std::ostream& File ) const
   {
     File.put( 0xFF );
@@ -387,7 +269,7 @@ namespace MuTraMIDI {
     File.put( Channel );
     return 1 + 1 + 1 + 1;
   } // write( std::ostream& ) const
-  void TrackEndEvent::print( ostream& Stream ) { Stream << "Конец дорожки."; }
+  void TrackEndEvent::print( ostream& Stream ) const { Stream << "Конец дорожки."; }
   int TrackEndEvent::write( std::ostream& File ) const
   {
     File.put( 0xFF );
@@ -395,8 +277,8 @@ namespace MuTraMIDI {
     File.put( 0 );
     return 1 + 1 + 1;
   } // write( std::ostream& ) const
-  void TempoEvent::print( ostream& Stream ) { Stream << "Длительность четвертной ноты " << tempo() << " микросекунд"; }
-  void TempoEvent::play( Sequencer& S ) { S.tempo( tempo() ); }
+  void TempoEvent::print( ostream& Stream ) const { Stream << "Длительность четвертной ноты " << tempo() << " микросекунд"; }
+  void TempoEvent::play( Sequencer& S ) const { S.tempo( tempo() ); }
   int TempoEvent::write( std::ostream& File ) const
   {
     File.put( 0xFF );
@@ -405,7 +287,7 @@ namespace MuTraMIDI {
     put_int( File, 3, Tempo );
     return 1 + 1 + 1 + 3;
   } // write( std::ostream& ) const
-  void SMTPEOffsetEvent::print( ostream& Stream )
+  void SMTPEOffsetEvent::print( ostream& Stream ) const
   { Stream << "Задержка дорожки: " << setfill( '0' ) << setw( 2 ) << hour() << ':' << minute() << ':' << second() << ':' << frame() << '.' << hundredths(); }
   int SMTPEOffsetEvent::write( std::ostream& File ) const
   {
@@ -419,8 +301,8 @@ namespace MuTraMIDI {
     File.put( Hundredths );
     return 1 + 1 + 1 + 5;
   } // write( std::ostream& ) const
-  void TimeSignatureEvent::play( Sequencer& S ) { S.meter( Numerator, Denominator ); }
-  void TimeSignatureEvent::print( ostream& Stream )
+  void TimeSignatureEvent::play( Sequencer& S ) const { S.meter( Numerator, Denominator ); }
+  void TimeSignatureEvent::print( ostream& Stream ) const
   { 
     Stream << "Time Signature: " << numerator() << '/' << ( 1 << denominator() ) << ", метроном: " << click_clocks() << ", в одной четверти "
 	   << thirtyseconds() << " тридцатьвторых";
@@ -436,7 +318,7 @@ namespace MuTraMIDI {
     File.put( ThirtySeconds );
     return 1 + 1 + 1 + 4;
   } // write( std::ostream& ) const
-  void KeySignatureEvent::print( ostream& Stream )
+  void KeySignatureEvent::print( ostream& Stream ) const
   {
     Stream << "Тональность " << ( minor() ? "минорная" : "мажорная" ) << ", при ключе ";
     if( tonal() < 0 )
@@ -453,7 +335,7 @@ namespace MuTraMIDI {
     File.put( Minor );
     return 1 + 1 + 1 + 2;
   } // write( std::ostream& ) const
-  void SequencerMetaEvent::print( ostream& Stream )
+  void SequencerMetaEvent::print( ostream& Stream ) const
   {
     Stream << "Metaсообщение секвенсору (" << length() << " байт):" << hex << setfill( '0' ) << setw( 2 );
     for( int I = 0; I < length(); I++ )
@@ -469,26 +351,6 @@ namespace MuTraMIDI {
     return Result;
   } // write( std::ostream& ) const
 
-#if 0
-  Event* SysExEvent::parse( const unsigned char*& Pos, int& ToGo ) {
-    if( ToGo < 2 ) return nullptr;
-    const unsigned char* P = Pos+1;
-    int Count = ToGo;
-    int Length = get_var( P, Count );
-    if( Count < 0 || Count < Length ) return nullptr;
-    unsigned char* Data = new unsigned char[ *Pos == 0xF0 ? Length+1 : Length ];
-    if( *Pos == 0xF0 )
-    {
-      Data[ 0 ] = 0xF0;
-      memcpy( Data+1, P, Length );
-    }
-    else
-      memcpy( Data, P, Length );
-    Pos = P + Length;
-    ToGo = Count - Length;
-    return new SysExEvent( Length, Data );
-  } // parse( const unsigned char*&, int& )
-#endif
   Event* SysExEvent::get( InStream& Stream, size_t& Count ) {
     int Length = Stream.get_var();
     Count += Stream.count();
@@ -509,7 +371,7 @@ namespace MuTraMIDI {
     Count += Length;
     return new SysExEvent( Length, Data );
   } // get( InStream&, size_t& )
-  void SysExEvent::print( ostream& Stream )
+  void SysExEvent::print( ostream& Stream ) const
   {
     Stream << "SysEx (" << length() << " байт):" << hex << setfill( '0' ) << setw( 2 );
     for( int I = 0; I < length(); I++ )
