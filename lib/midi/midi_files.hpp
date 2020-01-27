@@ -58,10 +58,12 @@ namespace MuTraMIDI {
     short Type;
     short TracksNum;
     short Division;
+    uint8_t Low;
+    uint8_t High;
     void add( Event* NewEvent ) { Tracks.back()->events().back()->add( NewEvent ); }
   public:
     MIDISequence( std::string FileName );
-    MIDISequence() : Type( 0 ), TracksNum( 0 ), Division( 120 ) {}
+    MIDISequence() : Type( 0 ), TracksNum( 0 ), Division( 120 ), Low( 0 ), High( 127 ) {}
     virtual ~MIDISequence()
     {
       while( !Tracks.empty() )
@@ -73,6 +75,8 @@ namespace MuTraMIDI {
     int division() const { return Division; }
     int tracks_num() const { return TracksNum; }
     std::vector<MIDITrack*>& tracks() { return Tracks; }
+    uint8_t low() const { return Low; }
+    uint8_t high() const { return High; }
     void print( std::ostream& Stream );
     void play( Sequencer& S );
     bool write( std::ostream& File ) const;

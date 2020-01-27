@@ -101,7 +101,7 @@ namespace MuTraMIDI {
     TotalDiff += Diff;
   } // wait_for_usec( double )
 
-  ALSASequencer::ALSASequencer( ostream& Device0 = std::cout ) : LinuxSequencer( Device0 ), OutClient( 128 ), OutPort( 0 )
+  ALSASequencer::ALSASequencer( int OutClient0 = 128, ostream& Device0 = std::cout ) : LinuxSequencer( Device0 ), OutClient( OutClient0 ), OutPort( 0 )
   {
     int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 );
     if( Err < 0 ) cerr << "Can't open sequencer." << Err << endl;
@@ -113,7 +113,7 @@ namespace MuTraMIDI {
 
     Err = snd_seq_create_simple_port( Seq, "WholemanOut", 0, SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION );
     if( Err < 0 ) cerr << "Can't create port." << Err << endl;
-    snd_seq_connect_to( Seq, 0, 128, 0 );
+    snd_seq_connect_to( Seq, 0, OutClient, 0 );
   } // конструктор по девайсу
   ALSASequencer::~ALSASequencer()
   {
@@ -137,7 +137,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send note on." << Err << endl;
-    else cerr << "Note on sent." << endl;
+    // else cerr << "Note on sent." << endl;
     snd_seq_drain_output( Seq );
   } // note_on( int, int, int ) 
   void ALSASequencer::note_off( int Channel, int Note, int Velocity )
@@ -157,7 +157,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send note off." << Err << endl;
-    else cerr << "Note off sent." << endl;
+    // else cerr << "Note off sent." << endl;
     snd_seq_drain_output( Seq );
   } // note_off( int, int, int ) 
   void ALSASequencer::after_touch( int Channel, int Note, int Velocity )
@@ -177,7 +177,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send aftertouch." << Err << endl;
-    else cerr << "Aftertouch sent." << endl;
+    // else cerr << "Aftertouch sent." << endl;
     snd_seq_drain_output( Seq );
   } // after_touch( int, int, int )
   void ALSASequencer::program_change( int Channel, int NewProgram )
@@ -196,7 +196,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send program change." << Err << " " << EAGAIN << endl;
-    else cerr << "Program changed." << endl;
+    // else cerr << "Program changed." << endl;
     snd_seq_drain_output( Seq );
   } // program_change( int, int )
   void ALSASequencer::control_change( int Channel, int Control, int Value )
@@ -216,7 +216,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send controller event." << Err << " " << EAGAIN << endl;
-    else cerr << "Controller sent." << endl;
+    // else cerr << "Controller sent." << endl;
     snd_seq_drain_output( Seq );
   } // control_change( int, int, int )
   void ALSASequencer::pitch_bend( int Channel, int Bend )
@@ -235,7 +235,7 @@ namespace MuTraMIDI {
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send pitch band." << Err << " " << EAGAIN << endl;
-    else cerr << "Pitch bended." << endl;
+    // else cerr << "Pitch bended." << endl;
     snd_seq_drain_output( Seq );
   } // control_change( int, int, int )
 

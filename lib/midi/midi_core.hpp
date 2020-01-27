@@ -12,6 +12,9 @@
 
 /** \file
  * Базовые объекты MIDI-подсистемы. На данный момент это секвенсер (Sequencer), который обеспечивает интерфейс воспроизведения или обработки событий, различные MIDI-сообщения (Event) 
+ * Однако, надо заметить, что тут всё надо бы пересмотреть. Например, сообщение с входного устройства, которое могло бы проходить напрямую в выходное, декодируется и создаётся соответствующий объект,
+ * который вызывает метод секвенсора. В предложенной реализация обработчиков в виде секвенсоров приходится переопределять все функции, когда можно было бы просто передавать сообщение дальше, как есть,
+ * добавляя только необходимые методы.
  */
 namespace MuTraMIDI {
   class Event;
@@ -141,6 +144,7 @@ namespace MuTraMIDI {
     virtual void print( std::ostream& Stream ) const;
     virtual void play( Sequencer& S ) const {}
     virtual int write( std::ostream& File ) const { return File.good(); }
+    virtual StatusCode status() const { return Unknown; }
     TimeMS time() const { return mTimeMS; }
     void time( TimeMS NewTime ) { mTimeMS = NewTime; }
     //! \todo StatusCode status() const { return Status; }

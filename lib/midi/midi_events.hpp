@@ -17,7 +17,7 @@ namespace MuTraMIDI {
     //! \param Str - input stream
     static Event* get( InStream& Str, size_t& Count );
     ChannelEvent( StatusCode Status0, int Channel0 ) : Status( Status0 ), Channel( Channel0 ) {}
-    StatusCode status() const { return Status; }
+    StatusCode status() const { return StatusCode( Status & EventMask ); }
     int channel() const { return Channel; }
 
     void print( std::ostream& Stream ) const;

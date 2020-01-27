@@ -1,4 +1,5 @@
-#include "input_device.hpp"
+#include <input_device.hpp>
+#include "star_lighter.hpp"
 using std::string;
 using std::cin;
 using std::cout;
@@ -8,8 +9,20 @@ using MuTraMIDI::InputDevice;
 using MuTraMIDI::Event;
 
 class EventsPrinter : public InputDevice::Client {
-public: 
-  void event_received( const Event& Ev ) { Ev.print( cout ); cout << endl; }
+public:
+  EventsPrinter() : Li( "/dev/ttyACM0" ) {
+    Li.high( 77 );
+    Li.low( 36 );
+    Li.stars_for_note( 3 );
+
+    Li.start();
+  } // EventsPrinter()
+  void event_received( const Event& Ev ) {
+    Ev.print( cout ); cout << endl;
+    Ev.play( Li );
+  }
+private:
+  StarLighter Li;
 }; // EventsPrinter
 
 class LessonStub : public InputDevice::Client {

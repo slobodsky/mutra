@@ -100,7 +100,7 @@ namespace MuTraMIDI {
     return Written;
   } // write( ostream&, unsigned ) const
 
-  MIDISequence::MIDISequence( string FileName )
+  MIDISequence::MIDISequence( string FileName ) : Low( 128 ), High( 0 )
   {
     ifstream File( FileName.c_str(), ios::in | ios::binary );
     FileInStream InSt( File );
@@ -131,7 +131,7 @@ namespace MuTraMIDI {
 #endif
 	Tracks.push_back( new MIDITrack );
 	int Time = 0;
-	unsigned char Status = 0;
+	// unsigned char Status = 0;
 	while( ToGo > 0 )
 	{
 	  int Delta = InSt.get_var();
@@ -141,6 +141,11 @@ namespace MuTraMIDI {
 	    Tracks.back()->events().push_back( new EventsList( Time ) );
 	  }
 	  if( Event* Ev = InSt.get_event() ) {
+	    if( Ev->status() == Event::NoteOn ) {
+	      NoteEvent* N = static_cast<NoteEvent*>( Ev );
+	      if( N->note() > High ) High = N->note();
+	      if( N->note() < Low ) Low = N->note();
+	    }
 	    add( Ev );
 	    ToGo -= InSt.count();
 #ifdef MUTRA_DEBUG
@@ -156,6 +161,10 @@ namespace MuTraMIDI {
 	  }
 	}
       }
+    }
+    if( Low > High ) {
+      Low = 0;
+      High = 127;
     }
   }
   void MIDITrack::print( ostream& Stream )
