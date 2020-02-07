@@ -43,14 +43,14 @@ namespace MuTraMIDI {
     Time += Delta;
     if( Msg ) {
 #ifdef MUTRA_DEBUG
-      cout << "RtMIDIInput got " << Msg->size() << " bytes @ " << Time << endl;
+      cout << "RtMIDIInput got " << Msg->size() << " bytes @ " << Time << " delta: " << Delta << endl;
 #endif
       VectorInStream InSt( *Msg );
       while( Event* Ev = InSt.get_event() ) {
 #ifdef MUTRA_DEBUG
 	cout << "Got event" << endl;
 #endif
-	Ev->time( Time * 1000 ); //!< \todo Change time in the events (& everywhere) to microseconds
+	Ev->time( Time * 1000000 );
 	event_received( *Ev );
 	delete Ev;
       }

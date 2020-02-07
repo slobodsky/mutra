@@ -1,5 +1,6 @@
 #include "midi_events.hpp"
 #include <iomanip>
+#include <cstring>
 using std::istream;
 using std::ostream;
 using std::hex;
@@ -10,6 +11,7 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::cerr;
+using std::memcpy;
 
 namespace MuTraMIDI {
   Event* ChannelEvent::get( InStream& Str, size_t& Count ) {
@@ -200,7 +202,13 @@ namespace MuTraMIDI {
     return 1 + 1 + 1 + 2;
   } // write( std::ostream& ) const
 
-  UnknownMetaEvent::UnknownMetaEvent( int Type0, int Length0, unsigned char* Data0 ) : Type( Type0 ), Length( Length0 ), Data( Data0 ) {} // Конструктор
+  UnknownMetaEvent::UnknownMetaEvent( const UnknownMetaEvent& Other ) : MetaEvent( Other ), Length( Other.Length ), Data( 0 ) {
+    if( Length > 0 ) {
+      Data = new unsigned char[ Length ];
+      memcpy( Data, Other.Data, Length );
+    }
+  } // UnknownMetaEvent( const UnknownMetaEvent& )
+  UnknownMetaEvent::UnknownMetaEvent( int Type0, int Length0, unsigned char* Data0, TimeuS Time0 ) : MetaEvent( Time0 ), Type( Type0 ), Length( Length0 ), Data( Data0 ) {} // Конструктор
   UnknownMetaEvent::~UnknownMetaEvent() { if( Data ) delete Data; }
   void UnknownMetaEvent::print( ostream& Stream ) const
   {
@@ -335,6 +343,12 @@ namespace MuTraMIDI {
     File.put( Minor );
     return 1 + 1 + 1 + 2;
   } // write( std::ostream& ) const
+  SequencerMetaEvent::SequencerMetaEvent( const SequencerMetaEvent& Other ) : MetaEvent( Other ), Length( Other.Length ), Data( 0 ) {
+    if( Length > 0 ) {
+      Data = new unsigned char[ Length ];
+      memcpy( Data, Other.Data, Length );
+    }
+  } // SequencerMetaEvent( const SequencerMetaEvent& )
   void SequencerMetaEvent::print( ostream& Stream ) const
   {
     Stream << "Metaсообщение секвенсору (" << length() << " байт):" << hex << setfill( '0' ) << setw( 2 );
@@ -371,6 +385,12 @@ namespace MuTraMIDI {
     Count += Length;
     return new SysExEvent( Length, Data );
   } // get( InStream&, size_t& )
+  SysExEvent::SysExEvent( const SysExEvent& Other ) : Event( Other ), Length( Other.Length ), Data( 0 ) {
+    if( Length > 0 ) {
+      Data = new unsigned char[ Length ];
+      memcpy( Data, Other.Data, Length );
+    }
+  } // SysExEvent( const SysExEvent& )
   void SysExEvent::print( ostream& Stream ) const
   {
     Stream << "SysEx (" << length() << " байт):" << hex << setfill( '0' ) << setw( 2 );

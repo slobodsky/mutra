@@ -36,7 +36,7 @@ namespace MuTraMIDI {
   class ALSASequencer : public LinuxSequencer
   {
   public:
-    ALSASequencer( std::ostream& Device0 );
+    ALSASequencer( int OutClient0 = 128, int OutPort0 = 0, std::ostream& Device0 = std::cout );
     ~ALSASequencer();
     void note_on( int Channel, int Note, int Velocity );
     void note_off( int Channel, int Note, int Velocity );

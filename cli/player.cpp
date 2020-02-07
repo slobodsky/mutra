@@ -1,4 +1,4 @@
-#include <midi_files.hpp>
+#include <midi/midi_files.hpp>
 #include "star_lighter.hpp"
 #include <unistd.h>
 using std::cout;

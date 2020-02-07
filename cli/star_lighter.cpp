@@ -82,11 +82,15 @@ void* StarLighter::port_worker( void* This ) {
 	    write( Port, "[paused]\n", 9 );
 	    fsync( Port );
 	    Paused = true;
+#if 0
 	    cout << ">> Paused." << endl;
+#endif
 	    break;
 	  }
 	  else if( *Pos == char(17) ) {
+#if 0
 	    cout << ">> Resume." << endl;
+#endif
 	    Paused = false;
 	    break;
 	  }
@@ -233,5 +237,7 @@ void StarLighter::send_command( const string& Command ) {
   mCount += Command.size();
 }
 void StarLighter::data_received( const string& Data ) {
+#if 0
   cout << "=> " << Data << flush;
+#endif
 }

@@ -11,7 +11,7 @@ namespace MuTraMIDI {
     ~RtMIDIInputDevice();
     void start();
     void stop();
-    Event::TimeMS time() const { return Time * 1000000; }
+    Event::TimeuS time() const { return Time * 1000000; }
   private:
     void message_received( double Delta, std::vector<unsigned char>* Msg );
     RtMidiIn* In;

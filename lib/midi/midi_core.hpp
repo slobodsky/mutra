@@ -134,27 +134,30 @@ namespace MuTraMIDI {
   {
   public:
     //! \todo Change to microseconds.
-    typedef int64_t TimeMS; //!< Time in milliseconds from the start of the file or session. If < 0 - right now (to play).
+    typedef int64_t TimeuS; //!< Time in microseconds from the start of the file or session. If < 0 - right now (to play).
     enum StatusCode { Unknown = 0, NoteOff = 0x80, NoteOn = 0x90, AfterTouch = 0xA0, ControlChange = 0xB0, ProgramChange = 0xC0, ChannelAfterTouch = 0xD0, PitchBend = 0xE0,
 		      SysEx = 0xF0, SysExEscape = 0xF7, MetaCode = 0xFF, EventMask = 0xF0, ChannelMask = 0x0F };
     // Функции для чтения и записи событий из/в файла.
     static Event* get( InStream& Str, size_t& Count );
-    Event( TimeMS Time = -1 ) : mTimeMS( Time ) {}
+    Event( TimeuS Time = -1 ) : mTimeuS( Time ) {}
     virtual ~Event() {}
     virtual void print( std::ostream& Stream ) const;
     virtual void play( Sequencer& S ) const {}
     virtual int write( std::ostream& File ) const { return File.good(); }
     virtual StatusCode status() const { return Unknown; }
-    TimeMS time() const { return mTimeMS; }
-    void time( TimeMS NewTime ) { mTimeMS = NewTime; }
-    //! \todo StatusCode status() const { return Status; }
+    virtual Event* clone() const { return new Event( *this ); }
+    TimeuS time() const { return mTimeuS; }
+    void time( TimeuS NewTime ) { mTimeuS = NewTime; }
+  protected:
+    Event( const Event& Other ) : mTimeuS( Other.mTimeuS ) {}
   private:
-    TimeMS mTimeMS; //! Время события в миллисекундах. Начало отсчёта не определено.
+    TimeuS mTimeuS; //! Время события в микросекундах. Начало отсчёта зависит от конекста.
     //! \todo StatusCode Status; //! Message status (type). For channel messages does not contain channel.
   }; // Event
 
   //! Устройство ввода. Вообще говоря, нам надо бы иметь возможность получить список всех устройств и их портов (в теории одно устройство может иметь несколько портов) и выбрать нужное с учётом
   // особенностей системы по расшариванию их между приложениями.
+  // Реализация устройства должна устанавливать в сообщениях время в микросекундах, например, от вызова функции start() или реальное - не важно.
   class InputDevice
   {
   public:
@@ -163,7 +166,7 @@ namespace MuTraMIDI {
     {
     public:
       virtual ~Client() {}
-      virtual void event_received( const Event& Ev ); //!< \note This event can be destroyed immediately after this. If you need it, then clone it.
+      virtual void event_received( const Event& Ev ); //!< \note This event can be destroyed immediately after this function return. If you need it, then clone it.
       virtual void connected( InputDevice& Dev );
       virtual void disconnected( InputDevice& Dev );
       virtual void started( InputDevice& Dev );

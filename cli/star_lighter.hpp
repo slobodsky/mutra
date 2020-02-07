@@ -1,6 +1,6 @@
 #ifndef STAR_LIGHTER_HPP
 #define STAR_LIGHTER_HPP
-#include "midi_core.hpp"
+#include <midi/midi_core.hpp>
 #include <string>
 
 class MultiSequencer : public MuTraMIDI::Sequencer {

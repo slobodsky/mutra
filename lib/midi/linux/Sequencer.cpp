@@ -12,7 +12,14 @@ using std::cout;
 typedef unsigned char BYTE;
 
 namespace MuTraMIDI {
-  Sequencer* Sequencer::get_instance( const string& URI ) { return new ALSASequencer( cout ); } // create_default()
+  Sequencer* Sequencer::get_instance( const string& URI ) {
+    if( URI.empty() ) return new ALSASequencer();
+    if( URI.substr( 0, 7 ) == "alsa://" ) {
+      int Client = atoi( URI.substr( 7 ).c_str() );
+      return new ALSASequencer( Client );
+    }
+    return nullptr;
+  } // create_default()
 
   LinuxSequencer::LinuxSequencer( ostream& Device0 ) : Device( Device0 )
   {} // конструктор по девайсу
@@ -101,7 +108,7 @@ namespace MuTraMIDI {
     TotalDiff += Diff;
   } // wait_for_usec( double )
 
-  ALSASequencer::ALSASequencer( int OutClient0 = 128, ostream& Device0 = std::cout ) : LinuxSequencer( Device0 ), OutClient( OutClient0 ), OutPort( 0 )
+  ALSASequencer::ALSASequencer( int OutClient0, int OutPort0, ostream& Device0 ) : LinuxSequencer( Device0 ), OutClient( OutClient0 ), OutPort( OutPort0 )
   {
     int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 );
     if( Err < 0 ) cerr << "Can't open sequencer." << Err << endl;
