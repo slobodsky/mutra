@@ -3,4 +3,4 @@ project( "Music Trainer" VERSION 0.0.1 DESCRIPTION "Music (piano ATM) training l
 include_directories(  "${PROJECT_SOURCE_DIR}/lib" )
 add_subdirectory( lib )
 add_subdirectory( cli )
-# add_subdirectory( app )
+add_subdirectory( app )

@@ -149,7 +149,7 @@ private:
 }; // NoteTrainer
 
 int main() {
-  const char* LessonName = "/home/nick/projects/small/music_trainer/data/les.mles";
+  const char* LessonName = "/home/nick/projects/small/music_trainer/data/Lesson.mles";
   const char* DevName = "rtmidi://2";
   const char* SequencerName = "alsa://24";
   bool PlayNotes = false;
@@ -208,6 +208,7 @@ int main() {
 		  Seq->note_on( 9, 78, 100 );
 #if 0
 		  Ex.print( cout );
+#else
 		  std::ofstream File( "exercise.mid" );
 		  Ex.write( File );
 #endif
