@@ -9,6 +9,7 @@ using std::vector;
 using std::find_if;
 using std::for_each;
 using MuTraMIDI::Event;
+using MuTraMIDI::TimeSignatureEvent;
 using MuTraMIDI::ChannelEvent;
 using MuTraMIDI::NoteEvent;
 using MuTraMIDI::EventsList;
@@ -27,11 +28,12 @@ namespace MuTraTrain {
       if( Ex.good() )
       {
 	string Name;
-	Ex >> Name;
+	Ex >> Name >> TargetTracks >> Channels >> StartPoint >> StopPoint >> StartThreshold >> StopThreshold >> VelocityThreshold >> TempoSkew;
+#ifdef MUTRA_DEBUG
 	cout << "Load play from " << Name << endl;
+#endif
 	Play = new MIDISequence( Name );
 	Play->play( *this );
-	Ex >> TargetTracks >> Channels >> StartPoint >> StopPoint >> StartThreshold >> StopThreshold >> VelocityThreshold >> TempoSkew;
 #ifdef SHOW_WINDOWS_TAILS
 	Stats.clear();
 	if( Les )
@@ -45,7 +47,9 @@ namespace MuTraTrain {
 	  Excersize = 0;
 	}
 #endif
+#ifdef MUTRA_DEBUG
 	cout << "Exercise " << FileName << " loaded." << endl;
+#endif
 	Result = true;
       }
     }
@@ -84,25 +88,39 @@ namespace MuTraTrain {
 #endif
       Tempo = uSecForQuarter;
   } // tempo( unsigned )
+  void ExerciseSequence::meter( int N, int D ) {
+    Numerator = N;
+    Denominator = D;
+  } // meter( int, int )
   void ExerciseSequence::add_original_event( Event* NewEvent )
   {
     int ClockFromStart = Clock - StartPoint;
-    if( Tracks.empty() ) Tracks.push_back( new MIDITrack() );
+    if( Tracks.empty() ) add_track();
+#ifdef MUTRA_DEBUG
     cout << "O: ";
+#endif
     if( Tracks.front()->events().empty() || Tracks.front()->events().back()->time() != ClockFromStart )
     {
+#ifdef MUTRA_DEBUG
       cout << "@" << ClockFromStart << " ";
+#endif
       Tracks.front()->events().push_back( new EventsList( ClockFromStart ) );
       if( OriginalStart < 0 )
       {
+#ifdef MUTRA_DEBUG
+	cout << "Add time signature " << Numerator << "/" << (1 << Denominator) << endl;
+#endif
+	Tracks.front()->events().back()->add( new TimeSignatureEvent( Numerator, Denominator ) );
 	OriginalStart = ClockFromStart;
 	OriginalLength = 0;
       }
       else if( ClockFromStart - OriginalStart > OriginalLength )
 	OriginalLength = ClockFromStart - OriginalStart;
     }
+#ifdef MUTRA_DEBUG
     NewEvent->print( cout );
     cout << endl;
+#endif
     Tracks.front()->events().back()->add( NewEvent );
   } // add_original_event( Event* )
   void ExerciseSequence::add_played_event( Event* NewEvent ) {
@@ -111,18 +129,16 @@ namespace MuTraTrain {
       if( NewEvent->status() == ChannelEvent::NoteOn ) PlayedStart = EvClock;
       else return; // throw away events before start
     }
-#if 0
+#ifdef MUTRA_DEBUG
     std::cout << "Add event @" << EvClock << " (" << NewEvent->time() << "us): ";
-#endif
     NewEvent->print( std::cout );
     std::cout << std::endl;
-    EvClock -= PlayedStart;
-    if( Tracks.back()->events().empty() || Tracks.back()->events().back()->time() != EvClock )
-      Tracks.back()->events().push_back( new EventsList( EvClock ) );
-    Tracks.back()->events().back()->add( NewEvent );
+#endif
+    EvClock += OriginalStart - PlayedStart;
+    add_event( EvClock, NewEvent );
   } // add_played_event( Event* )
   void ExerciseSequence::event_received( const Event& Ev ) {
-#if 0
+#ifdef MUTRA_DEBUG
     std::cout << "Recieved event: ";
     Ev.print( std::cout );
     std::cout << std::endl;
@@ -133,8 +149,8 @@ namespace MuTraTrain {
 
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
-    unsigned Clocks = static_cast<unsigned>( ( Time / tempo() ) * division() );
-#if 0
+    unsigned Clocks = static_cast<unsigned>( ( Time * division() ) / tempo() );
+#ifdef MUTRA_DEBUG
     cout << "Beat @" << Clocks << " (" << Time << "us)";
     if( PlayedStart >= 0 ) {
       cout << " " << Clocks - PlayedStart << " from start (" << PlayedStart << ") & " << PlayedStart + OriginalLength - Clocks << " to end.";
@@ -199,13 +215,14 @@ namespace MuTraTrain {
 	  Start = Clock;
 	if( Finish < Clock )
 	  Finish = Clock;
-	find_if( Notes.begin(), Notes.end(), NoteStopper( Note, Clock ) );
+	find_if( Notes.rbegin(), Notes.rend(), NoteStopper( Note, Clock ) );
       }
       int start() const { return Start; }
       int finish() const { return Finish; }
     }; // NotesSequence
   }; // Helpers
 
+  //! \todo When note off message comes with note on for other note the device (or OS) loses that note off message. Find this situation and set stop to correct time.
   unsigned ExerciseSequence::compare( NotesStat& Stat )
   {
     Stat.Result = NoError;
@@ -234,7 +251,7 @@ namespace MuTraTrain {
 	  Stat.Result |= NoteError;
 	else
 	{
-	  Diff.push_back( NotePlay( PIt->Note, PIt->Velocity-OIt->Velocity, PIt->Start-OIt->Start, PIt->Stop-OIt->Stop ) );
+	  Diff.push_back( NotePlay( PIt->Note, PIt->Velocity-OIt->Velocity, PIt->Start-OIt->Start, PIt->Stop < 0 ? 0 : PIt->Stop-OIt->Stop ) );
 	  PIt->Visited = true;
 	}
       }
@@ -274,18 +291,17 @@ namespace MuTraTrain {
       delete Tracks.back();
       Tracks.pop_back();
     }
-    Type = 1;
+    Type = 0;
     Tempo = 0;
-    TracksNum = 1;
-    Tracks.push_back( new MIDITrack ); // Exercise
+    TracksNum = 0;
+    add_track(); // Exercise (original)
     OriginalStart = -1;
     reset();
   } // clear()
 
   void ExerciseSequence::new_take()
   {
-    TracksNum++;
-    Tracks.push_back( new MIDITrack ); // Record
+    add_track(); // Record
     PlayedStart = -1;
   } // new_take()
 } // MuTraTrain

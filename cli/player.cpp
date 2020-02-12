@@ -10,22 +10,28 @@ using MuTraMIDI::MIDISequence;
 
 int main( int argc, char* argv[] )
 {
+  const char* LightPortName = nullptr; // "/dev/ttyACM0";
   Sequencer* Seq = Sequencer::get_instance();
   MultiSequencer Mult;
   Mult.add( Seq );
-  StarLighter Light( "/dev/ttyACM0" );
-  cerr << "Wait a few seconds..." << flush;
-  sleep( 3 );
-  cerr << " Go on." << endl;
-  Mult.add( &Light );
   try {
     for( int I = 1; I < argc; I++ )
     {
       MIDISequence Play( argv[ I ] );
       //LinuxSequencer Seq( cout );
+#ifdef MUTRA_DEBUG
       cerr << "Файл: " << argv[ I ] << " notes: " << int(Play.low()) << " - " << int(Play.high()) << endl;
-      Light.low( Play.low() );
-      Light.high( Play.high() );
+      Play.print( cout );
+#endif
+      if( LightPortName ) {
+	StarLighter Light( LightPortName );
+	cerr << "Wait a few seconds..." << flush;
+	sleep( 3 );
+	cerr << " Go on." << endl;
+	Mult.add( &Light );
+	Light.low( Play.low() );
+	Light.high( Play.high() );
+      }
       Play.play( Mult );
 #if 0
       cerr << "\tСреднее отклонение: " << Seq->average_diff()

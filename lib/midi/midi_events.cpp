@@ -16,7 +16,7 @@ using std::memcpy;
 namespace MuTraMIDI {
   Event* ChannelEvent::get( InStream& Str, size_t& Count ) {
     uint8_t Status = Str.status();
-#if 0
+#ifdef MUTRA_DEBUG
     cout << "Get Channel event. Status " << hex << int(Status) << " in " << int(In) << " to go " << dec << ToGo << endl;
 #endif
     uint8_t EventCode = Status & EventMask;
@@ -139,7 +139,7 @@ namespace MuTraMIDI {
     ++Count;
     int Length =  Stream.get_var();
     Count += Stream.count() + Length;
-#if 0
+#ifdef MUTRA_DEBUG
     cout << "Get meta event " << int( Status ) << " type " << Type << " length " << Length << " to go " << ToGo << endl;
 #endif
     switch( Type )
@@ -186,7 +186,7 @@ namespace MuTraMIDI {
       unsigned char* Data = new unsigned char[ Length ];
       Stream.read( Data, Length );
       if( Type == MetaEvent::SequencerMeta ) return new SequencerMetaEvent( Length, Data ); // Sequencer Meta-event
-      else return new UnknownMetaEvent( Type, Length, Data );
+      else return new UnknownMetaEvent( static_cast<MetaEvent::MetaType>( Type ), Length, Data );
     }
     }
     return nullptr;
@@ -208,11 +208,11 @@ namespace MuTraMIDI {
       memcpy( Data, Other.Data, Length );
     }
   } // UnknownMetaEvent( const UnknownMetaEvent& )
-  UnknownMetaEvent::UnknownMetaEvent( int Type0, int Length0, unsigned char* Data0, TimeuS Time0 ) : MetaEvent( Time0 ), Type( Type0 ), Length( Length0 ), Data( Data0 ) {} // Конструктор
+  UnknownMetaEvent::UnknownMetaEvent( MetaType Type0, int Length0, unsigned char* Data0, TimeuS Time0 ) : MetaEvent( MetaEvent::MetaType( Type0 ), Time0 ), Length( Length0 ), Data( Data0 ) {} // Конструктор
   UnknownMetaEvent::~UnknownMetaEvent() { if( Data ) delete Data; }
   void UnknownMetaEvent::print( ostream& Stream ) const
   {
-    Stream << "Неопознанное метасообщение " << setfill( '0' ) << setw( 2 ) << hex << (int)Type << " длиной " << dec << setw( 1 ) << Length
+    Stream << "Неопознанное метасообщение " << setfill( '0' ) << setw( 2 ) << hex << (int)mType << " длиной " << dec << setw( 1 ) << Length
 	   << " байт:" << hex << setfill( '0' );
     for( int I = 0; I < Length; I++ )
       Stream << ' ' << setw( 2 ) << (int)Data[ I ];
@@ -221,7 +221,7 @@ namespace MuTraMIDI {
   int UnknownMetaEvent::write( std::ostream& File ) const
   {
     File.put( 0xFF );
-    File.put( Type );
+    File.put( mType );
     int Result = 1 + 1 + put_var( File, Length ) + Length;
     File.write( reinterpret_cast<char*>( Data ), Length );
     return Result;
@@ -368,7 +368,7 @@ namespace MuTraMIDI {
   Event* SysExEvent::get( InStream& Stream, size_t& Count ) {
     int Length = Stream.get_var();
     Count += Stream.count();
-#if 0
+#ifdef MUTRA_DEBUG
     cout << "Get sysex event " << hex << int( Status ) << " length " << dec << Length << " to go " << ToGo << endl;
 #endif
     unsigned char* Data = 0;

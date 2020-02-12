@@ -75,7 +75,7 @@ namespace MuTraWidgets {
     void note_on( int Channel, int Value, int Velocity ) {
       if( Velocity == 0 ) note_off( Channel, Value, Velocity );
       else {
-	qDebug() << "Add note" << Value << "in channel" << Channel;
+	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
 	if( Delays[ Track ] < 0 ) Delays[ Track ] = Clock;
 	Notes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
       }
@@ -86,16 +86,27 @@ namespace MuTraWidgets {
 	  It->mStop = Clock;
 	  return;
 	}
+      qDebug() << "Note" << Value << "in channel" << Channel << "not found for stop @" << Clock;
     }
+    void meter( int Numerator, int Denominator ) {
+      qDebug() << "Metar: " << Numerator << "/" << Denominator << endl;
+      Beats = Numerator;
+      Measure = Denominator;
+    } // meter( int, int )
     void start() { Time = 0; Clock = 0; }
     void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock  * tempo(); }
     vector<Note> Notes;
     int* Delays;
+
+    int Beats;
+    int Measure;
   }; // NotesListBuilder
   
   MainWindow::MainWindow( QWidget* Parent ) : QMainWindow( Parent ), MIDI( nullptr ) {
     UI.setupUi( this );
+    UI.ActionOpen->setShortcut( QKeySequence::Open );
     connect( UI.ActionOpen, SIGNAL( triggered() ), SLOT( open_file() ) );
+    UI.ActionQuit->setShortcut( QKeySequence::Quit );
     qApp->connect( UI.ActionQuit, SIGNAL( triggered() ), SLOT( quit() ) );
     setCentralWidget( new QGraphicsView( this ) );
   } // MainWindow( QWidget* )
@@ -118,11 +129,13 @@ namespace MuTraWidgets {
 	  QGraphicsScene* Sc = new QGraphicsScene( View );
 	  int Div = MIDI->division();
 	  NotesListBuilder NL( MIDI->tracks().size() );
+	  int TracksCount = MIDI->tracks().size();
 	  MIDI->play( NL );
 	  qreal K = Div / 32;
-	  qreal H = 16;
+	  qreal H = TracksCount < 5 ? 16 : TracksCount * 4;
+	  qreal BarH = H / TracksCount;
 	  qDebug() << "We have" << NL.Notes.size() << "notes.";
-	  for( int I = 0; I < MIDI->tracks().size(); ++I )
+	  for( int I = 0; I < TracksCount; ++I )
 	    qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
 	  int Finish = 0;
 	  int Low = 127;
@@ -131,15 +144,24 @@ namespace MuTraWidgets {
 	    if( N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] > Finish ) Finish = N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ];
 	    if( N.mValue < Low ) Low = N.mValue;
 	    if( N.mValue > High ) High = N.mValue;
-	    qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
-	    if( N.mStop < 0 ) continue;
-	    Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H, (N.mStop-N.mStart) / K, H, QPen( Qt::white, 3 ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
 	  }
 	  if( High > Low ) {
 	    int Top = ( 60-High ) * H;
-	    int Bottom = ( 60-Low ) * H;
-	    for( int X = 0; X < Finish; X += Div )
-	      Sc->addLine( X / K, Top, X /K, Bottom );
+	    int Bottom = ( 60-Low+1 ) * H;
+	    int Beat = 0;
+	    for( int X = 0; X < Finish; X += Div ) {
+	      QPen Pen;
+	      if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
+	      ++Beat;
+	      Sc->addLine( X / K, Top, X /K, Bottom, Pen );
+	    }
+	    for( int Y = Top; Y <= Bottom; Y += H )
+	      Sc->addLine( 0, Y, Finish / K, Y );
+	  }
+	  for( Note N: NL.Notes ) {
+	    qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
+	    Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
+			 QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
 	  }
 	  View->setScene( Sc );
 	}

@@ -37,7 +37,7 @@ namespace MuTraMIDI {
     while( Length > 0 && Str.good() && !Str.eof() ) {
       Val <<= 7;
       unsigned char Ch = (unsigned char)( Str.get() );
-      Val |= Ch & ~0x80;
+      Val |= Ch & 0x7F;
       --Length;
       if( !( Ch & 0x80 ) ) return Val;
     }
@@ -52,18 +52,18 @@ namespace MuTraMIDI {
       File.put( Num >> ( 8 * ( ToGo-1 ) ) & 0xFF );
     return Size;
   } // put_int( ostream&, int, int )
-  int put_var( ostream& File, int Number ) {
-    int Result = 0;
-    unsigned Buffer = 0;
-    for( unsigned Num = Number; Num; Num >>= 7 )
-      Buffer = ( Buffer << 7 ) | ( Num  & 0x7F );
-    for( ; Buffer > 0x7F ; Buffer >>= 7 ) {
-      File.put( ( Buffer & 0x7F ) | 0x80 );
-      Result++;
+  int put_var( ostream& File, unsigned Number ) {
+    int Count = 0;
+    int Bits = 0;
+    for( unsigned Num = Number; Num; Num >>= 7 ) Bits += 7;
+    while( Bits > 7 ) {
+      Bits -= 7;
+      File.put( Number >> Bits & 0x7F | 0x80 );
+      ++Count;
     }
-    File.put( Buffer );
-    Result++;
-    return Result;
+    File.put( Number & 0x7F );
+    ++Count;
+    return Count;
   } // put_var( ostream&, int )
   
   void InStream::read( unsigned char* Buffer, size_t Length ) {

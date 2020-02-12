@@ -44,6 +44,7 @@ namespace MuTraMIDI {
       }
     }
     std::vector<EventsList*>& events() { return Events; }
+    void close();
     void print( std::ostream& Stream );
     void play( Sequencer& Seq );
     bool write( std::ostream& File ) const;
@@ -74,9 +75,12 @@ namespace MuTraMIDI {
     }
     int division() const { return Division; }
     int tracks_num() const { return TracksNum; }
-    std::vector<MIDITrack*>& tracks() { return Tracks; }
+    const std::vector<MIDITrack*>& tracks() { return Tracks; }
     uint8_t low() const { return Low; }
     uint8_t high() const { return High; }
+    void add_track();
+    void add_event( int Clock, Event* NewEvent );
+    void close_last_track() { if( Tracks.size() > 0 ) Tracks.back()->close(); }
     void print( std::ostream& Stream );
     void play( Sequencer& S );
     bool write( std::ostream& File ) const;

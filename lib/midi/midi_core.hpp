@@ -25,7 +25,7 @@ namespace MuTraMIDI {
   int put_int( std::ostream& Str, int Size, int Number );
   // int get_var( const unsigned char*& Pos, int& ToGo );
   int get_var( std::istream& Str, int& Length );
-  int put_var( std::ostream& Str, int Number );
+  int put_var( std::ostream& Str, unsigned Number );
 
   //! Интерфейс для управления воспроизведением MIDI-последовательностей. Может представлять собой синтезатор, MIDI-выход или программный обработчик.
   //! \todo Обдумать разделение собственно устройства вывода и управление воспроизведением событий в заданное время.
@@ -74,13 +74,13 @@ namespace MuTraMIDI {
     virtual void start() {}
     virtual void wait_for( unsigned WaitClock ) {
       Clock = WaitClock;
-      Time = static_cast<int>( TempoTime + ( Clock-TempoClock ) / Division * Tempo );
+      Time = static_cast<int>( TempoTime + ( Clock-TempoClock ) * Tempo / Division );
       wait_for_usec( Start + Time );
     } // wait_for( unsigned )
     virtual void division( unsigned MIDIClockForQuarter ) { Division = MIDIClockForQuarter; }
     unsigned tempo() const { return Tempo; }
     virtual void tempo( unsigned uSecForQuarter ) {
-      TempoTime += static_cast<int>( ( Clock-TempoClock ) / Division * Tempo ); // Сколько времени в микросекундах прошло с тех пор, как мы меняли темп
+      TempoTime += static_cast<int>( ( Clock-TempoClock ) * Tempo / Division ); // Сколько времени в микросекундах прошло с тех пор, как мы меняли темп
       TempoClock = Clock;
       Tempo = uSecForQuarter;
     } // tempo( unsigned )

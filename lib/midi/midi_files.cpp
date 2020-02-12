@@ -92,6 +92,9 @@ namespace MuTraMIDI {
     int Written = 0;
     if( !Events.empty() )
     {
+#ifdef MUTRA_DEBUG
+      cout << "Write events list @" << Time << " diff: " << Time-Clock << endl;
+#endif
       Written += put_var( File, Time-Clock );
       vector<Event*>::const_iterator It = Events.begin();
       Written += (*It)->write( File );
@@ -104,15 +107,18 @@ namespace MuTraMIDI {
   {
     ifstream File( FileName.c_str(), ios::in | ios::binary );
     FileInStream InSt( File );
-    //! \todo Use a basic InStream as a parameter & move reading to a separate method. Also use array of chars for signatures, not strange multicharacter numbers.
+
     unsigned Sign;
     // Читаем заголовок
+    //! \todo Make some kind of plug-in objects that handle different chunk types.
     InSt.read( (unsigned char*)&Sign, 4 );
-    if( Sign != 'dhTM' )
+    if( Sign != 0x6468544Du ) // MThd (in opposite direction, cause LSF)
       throw MIDIException( "Нет заголовка файла!" );
     int ChunkSize	= InSt.get_int( 4 );
+    //! \todo Correctly support type 1 files with only the tempo events in the first trak.
     Type		= InSt.get_int( 2 );
     TracksNum	= InSt.get_int( 2 );
+    //! \todo Support SMPTE timings (now only PPQN)
     Division	= InSt.get_int( 2 );
 #ifdef MUTRA_DEBUG
     cout << "Reading MIDI file [" << FileName << "] type " << Type << " header chunk size " << ChunkSize << " tracks # " << TracksNum << " division " << Division << endl;
@@ -123,7 +129,7 @@ namespace MuTraMIDI {
     {
       InSt.read( (unsigned char*)&Sign, 4 );
       int ToGo = InSt.get_int( 4 );
-      if( Sign != 'krTM' )
+      if( Sign != 0x6B72544Du ) // MTrk
 	InSt.skip( ToGo );
       else {
 #ifdef MUTRA_DEBUG
@@ -151,11 +157,11 @@ namespace MuTraMIDI {
 #ifdef MUTRA_DEBUG
 	    cout << "Got event ";
 	    Ev->print( cout );
-	    cout << " " << InSt.count() << " bytes " << ToGo << " to go." << endl;
+	    cout << " @" << Tracks.back()->events().back()->time() << " " << InSt.count() << " bytes " << ToGo << " to go." << endl;
 #endif
 	  }
 	  else {
-	    cout << "Skip " << ToGo << " bytes." << endl; 
+	    cout << "Skip " << ToGo << " bytes." << endl;
 	    InSt.skip( ToGo );
 	    ToGo = 0;
 	  }
@@ -167,6 +173,12 @@ namespace MuTraMIDI {
       High = 127;
     }
   }
+  void MIDITrack::close() {
+    if( Events.empty() ) Events.push_back( new EventsList( 0 ) );
+    vector<Event*>& LastList = Events.back()->events();
+    if( LastList.size() == 0 || LastList.back()->status() != Event::MetaCode || static_cast<MetaEvent*>( LastList.back() )->type() != MetaEvent::TrackEnd )
+      LastList.push_back( new TrackEndEvent );
+  } // close()
   void MIDITrack::print( ostream& Stream )
   {
     for_each( Events.begin(), Events.end(), Helpers::Printer( Stream ) );
@@ -192,6 +204,18 @@ namespace MuTraMIDI {
     return File.good();
   } // write( std::ostream& ) const
 
+  void MIDISequence::add_track() {
+    ++TracksNum;
+    if( TracksNum > 1 && Type == 0 ) Type = 2;
+    if( Tracks.size() > 0 ) Tracks.back()->close();
+    Tracks.push_back( new MIDITrack );
+  } // add_track()
+  void MIDISequence::add_event( int Time, Event* NewEvent ) {
+    if( Tracks.size() == 0 ) add_track();
+    MIDITrack& Track = *Tracks.back();
+    if( Track.events().size() == 0 || Track.events().back()->time() != Time ) Track.events().push_back( new EventsList( Time ) );
+    add( NewEvent );
+  } // add_event( int, Event* )
   void MIDISequence::print( ostream& Stream )
   {
     Stream << "Файл типа " << Type << ", " << TracksNum << " дорожек, дивизион: " << Division;

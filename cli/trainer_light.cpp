@@ -9,6 +9,7 @@ using std::cerr;
 using std::endl;
 using std::flush;
 using std::string;
+using std::ofstream;
 using MuTraMIDI::Event;
 using MuTraMIDI::NoteEvent;
 using MuTraMIDI::InputDevice;
@@ -149,7 +150,7 @@ private:
 }; // NoteTrainer
 
 int main() {
-  const char* LessonName = "/home/nick/projects/small/music_trainer/data/Lesson.mles";
+  const char* LessonName = "/home/nick/projects/small/music_trainer/data/les.mles";
   const char* DevName = "rtmidi://2";
   const char* SequencerName = "alsa://24";
   bool PlayNotes = false;
@@ -175,10 +176,21 @@ int main() {
 	  cout << " retries: " << Les.retries() << " strike: " << Les.strike() << endl;
 	  Dev->add_client( Ex );
 	  if( Ex.load( MIDIName ) ) {
+	    cout << "Exercise loaded. Original start: " << Ex.OriginalStart << " length: " << Ex.OriginalLength << endl;
+#ifdef MUTRA_DEBUG
+	    {
+	      cout << "Original track: ";
+	      Ex.print( cout );
+	      cout << endl;
+	      ofstream File( "exercise.mid" );
+	      Ex.write( File );
+	      return 0;
+	    }
+#endif
 	    Metr.division( Ex.division() );
 	    Metr.meter( Ex.Numerator, Ex.Denominator );
 	    Metr.tempo( Ex.tempo() );
-	    cout << "Metronome: " << Ex.Numerator << '/' << Ex.Denominator << " " << ( 60000000 / Ex.tempo() ) << " bpm " << Ex.division() << " MIDI clocks for quarter." << endl;
+	    cout << "Metronome: " << Ex.Numerator << '/' << (1<<Ex.Denominator) << " " << ( 60000000 / Ex.tempo() ) << " bpm " << Ex.division() << " MIDI clocks for quarter." << endl;
 	    for( int Repeats = Les.retries(); Repeats > 0; ) {
 	      Ex.new_take();
 	      Ex.start();
@@ -186,7 +198,7 @@ int main() {
 	      //! \todo Make some callback when the exercise time is out.
 	      while( Ex.PlayedStart < 0 ) sleep( 1 );
 	      if( StartTime == 0 ) StartTime = get_time_us();
-	      cout << "Play's started @" << StartTime << "us" << endl;
+	      cout << "Play's started @" << StartTime << "us " << Ex.PlayedStart << " pulses" << endl;
 	      while( !Ex.beat( get_time_us() - StartTime ) ) sleep( 1 );
 	      Metr.stop();
 	      ExerciseSequence::NotesStat Stat;
@@ -206,12 +218,6 @@ int main() {
 		if( Stat.Result & ExerciseSequence::NoteError ) {
 		  cout << "Wrong notes." << endl;
 		  Seq->note_on( 9, 78, 100 );
-#if 0
-		  Ex.print( cout );
-#else
-		  std::ofstream File( "exercise.mid" );
-		  Ex.write( File );
-#endif
 		}
 		else {
 		  if( Stat.Result & ExerciseSequence::RythmError ) cout << "Rythm problems." << endl;
@@ -221,10 +227,18 @@ int main() {
 		       << ", velocity: " << Stat.VelocityMin << " - " << Stat.VelocityMax << endl;
 		}
 	      }
+#if 0
+	      Ex.print( cout );
+#else
+	      ofstream File( "exercise.mid" );
+	      Ex.close_last_track();
+	      Ex.write( File );
+#endif
+	      sleep( 3 );
 	    }
 	  }
 	  cout << "Go to the next exercise." << endl;
-	  Seq->note_on( 9, 60, 100 );
+	  Seq->note_on( 9, 52, 100 );
 	} while( Les.next() );
 	cout << "All done." << endl;
 	Les.save();

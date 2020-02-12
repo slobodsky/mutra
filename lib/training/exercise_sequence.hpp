@@ -75,8 +75,8 @@ namespace MuTraTrain {
 
     ExerciseSequence( unsigned Channels0, unsigned TargetTracks0 )
       : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), StartThreshold( 45 ), StopThreshold( 45 ), VelocityThreshold( 64 ),
-	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( 0 ), OriginalLength( -1 ), PlayedStart( -1 ), Dump( "beat.dump" )
-    {}
+	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), Dump( "beat.dump" )
+    { Type = 1; }
     bool load( const std::string& FileName );
     unsigned channels() const { return Channels; }
     unsigned tracks_filter() const { return TargetTracks; }
@@ -87,11 +87,7 @@ namespace MuTraTrain {
       Sequencer::division( MIDIClockForQuarter );
       MIDISequence::Division = MIDIClockForQuarter;
     }
-    void meter( int N, int D )
-    {
-      Numerator = N;
-      Denominator = D;
-    }
+    void meter( int N, int D );
     void reset();
     void note_on( int Channel, int Note, int Velocity );
     void note_off( int Channel, int Note, int Velocity );

@@ -14,7 +14,7 @@ using MuTraMIDI::EventsList;
 using MuTraMIDI::MIDITrack;
 using MuTraMIDI::MIDISequence;
 
-// #define USE_LIGHTS
+//#define USE_LIGHTS
 
 class EventsPrinter : public InputDevice::Client {
 public:
@@ -43,10 +43,7 @@ public:
   Recorder( int BeatsPerMinute = 120 ) : mTempo( 60*1000000 / BeatsPerMinute ) {}
   void event_received( const Event& Ev ) {
     int Time = Ev.time() * division() / mTempo;
-    if( Tracks.size() == 0 ) Tracks.push_back( new MIDITrack );
-    MIDITrack& Track = *Tracks.back();
-    if( Track.events().size() == 0 || Track.events().back()->time() != Time ) Track.events().push_back( new EventsList( Time ) );
-    add( Ev.clone() );
+    add_event( Time, Ev.clone() );
   }
 }; // Recorder
 
@@ -82,6 +79,7 @@ int main( int argc, char* argv[] ) {
     cin.get();
     Dev->stop();
     ofstream RecFile( "record.mid" );
+    Rec.close_last_track();
     Rec.write( RecFile );
     Dev->remove_client( Rec );
     Dev->remove_client( Pr );

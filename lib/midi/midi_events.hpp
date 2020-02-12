@@ -109,28 +109,29 @@ namespace MuTraMIDI {
 
   class MetaEvent : public Event
   {
-  protected:
-    MetaEvent( const MetaEvent& Other ) : Event( Other ) {}
   public:
-    MetaEvent( Event::TimeuS Time = -1 ) : Event( Time ) {}
     enum MetaType { SequenceNumber = 0x00, Text = 0x01, Copyright = 0x02, TrackName = 0x03, InstrumentName = 0x04,
 		    Lyric = 0x05, Marker = 0x06, CuePoint = 0x07, ChannelPrefix = 0x20, TrackEnd = 0x2F, Tempo = 0x51,
 		    SMTPEOffset = 0x54, TimeSignature = 0x58, KeySignature = 0x59, SequencerMeta = 0x7F };
+    MetaType type() const { return mType; }
     static Event* get( InStream& Str, size_t& Count );
     Event* clone() const { return new MetaEvent( *this ); }
     void print( std::ostream& Stream ) const;
+  protected:
+    MetaEvent( const MetaEvent& Other ) : Event( Other ), mType( Other.mType ) {}
+    MetaEvent( MetaType Type, Event::TimeuS Time = -1 ) : Event( Time ), mType( Type ) {}
+    MetaType mType;
   }; // MetaEvent
 
   //! \todo Here and below: consider sharing data and using copy on write.
   class UnknownMetaEvent : public MetaEvent
   {
-    int Type;
     int Length;
     unsigned char* Data;
   protected:
     UnknownMetaEvent( const UnknownMetaEvent& Other );
   public:
-    UnknownMetaEvent( int Type0, int Length0, unsigned char* Data0, TimeuS Time0 = -1 );
+    UnknownMetaEvent( MetaType Type0, int Length0, unsigned char* Data0, TimeuS Time0 = -1 );
     ~UnknownMetaEvent();
     Event* clone() const { return new UnknownMetaEvent( *this ); }
     void print( std::ostream& Stream ) const;
@@ -143,7 +144,7 @@ namespace MuTraMIDI {
   protected:
     SequenceNumberEvent( const SequenceNumberEvent& Other ) : MetaEvent( Other ), Number( Other.Number ) {}
   public:
-    SequenceNumberEvent( int Number0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Number( Number0 ) {}
+    SequenceNumberEvent( int Number0, TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::SequenceNumber, Time0 ), Number( Number0 ) {}
     Event* clone() const { return new SequenceNumberEvent( *this ); }
     void print( std::ostream& Stream ) const;
     int write( std::ostream& File ) const;
@@ -156,7 +157,7 @@ namespace MuTraMIDI {
     TextEvent( const TextEvent& Other ) : MetaEvent( Other ), Text( Other.Text ) {}
   public:
     static TextEvent* get_text( InStream& Str, size_t Length, uint8_t Type );
-    TextEvent( const std::string& Text0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Text( Text0 ) {}
+    TextEvent( const std::string& Text0, MetaEvent::MetaType Type = MetaEvent::Text, TimeuS Time0 = -1 ) : MetaEvent( Type, Time0 ), Text( Text0 ) {}
     const std::string& text() const { return Text; }
     Event* clone() const { return new TextEvent( *this ); }
     void print( std::ostream& Stream ) const;
@@ -168,7 +169,7 @@ namespace MuTraMIDI {
   {
     CopyrightEvent( const TextEvent& Other ) : TextEvent( Other ) {}
   public:
-    CopyrightEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    CopyrightEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::Copyright, Time0 ) {}
     Event* clone() const { return new CopyrightEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -179,7 +180,7 @@ namespace MuTraMIDI {
   protected:
     TrackNameEvent( const TrackNameEvent& Other ) : TextEvent( Other ) {}
   public:
-    TrackNameEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    TrackNameEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::TrackName, Time0 ) {}
     Event* clone() const { return new TrackNameEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -190,7 +191,7 @@ namespace MuTraMIDI {
   protected:
     InstrumentNameEvent( const InstrumentNameEvent& Other ) : TextEvent( Other ) {}
   public:
-    InstrumentNameEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    InstrumentNameEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::InstrumentName, Time0 ) {}
     Event* clone() const { return new InstrumentNameEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -201,7 +202,7 @@ namespace MuTraMIDI {
   protected:
     LyricEvent( const LyricEvent& Other ) : TextEvent( Other ) {}
   public:
-    LyricEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    LyricEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::Lyric, Time0 ) {}
     Event* clone() const { return new LyricEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -212,7 +213,7 @@ namespace MuTraMIDI {
   protected:
     MarkerEvent( const MarkerEvent& Other ) : TextEvent( Other ) {}
   public:
-    MarkerEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    MarkerEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::Marker, Time0 ) {}
     Event* clone() const { return new MarkerEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -223,7 +224,7 @@ namespace MuTraMIDI {
   protected:
     CuePointEvent( const CuePointEvent& Other ) : TextEvent( Other ) {}
   public:
-    CuePointEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, Time0 ) {}
+    CuePointEvent( const std::string& Text0, TimeuS Time0 = -1 ) : TextEvent( Text0, MetaEvent::CuePoint, Time0 ) {}
     Event* clone() const { return new CuePointEvent( *this ); }
     void print( std::ostream& Stream ) const;
     void play( Sequencer& S ) const;
@@ -236,7 +237,7 @@ namespace MuTraMIDI {
   protected:
     ChannelPrefixEvent( const ChannelPrefixEvent& Other ) : MetaEvent( Other ), Channel( Other.Channel ) {}
   public:
-    ChannelPrefixEvent( int Channel0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Channel( Channel0 ) {}
+    ChannelPrefixEvent( int Channel0, TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::ChannelPrefix, Time0 ), Channel( Channel0 ) {}
     int channel() const { return Channel; }
     Event* clone() const { return new ChannelPrefixEvent( *this ); }
     void print( std::ostream& Stream ) const;
@@ -248,7 +249,7 @@ namespace MuTraMIDI {
   protected:
     TrackEndEvent( const TrackEndEvent& Other ) : MetaEvent( Other ) {}
   public:
-    TrackEndEvent( TimeuS Time0 = -1 ) : MetaEvent( Time0 ) {}
+    TrackEndEvent( TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::TrackEnd, Time0 ) {}
     Event* clone() const { return new TrackEndEvent( *this ); }
     void print( std::ostream& Stream ) const;
     int write( std::ostream& File ) const;
@@ -260,7 +261,7 @@ namespace MuTraMIDI {
   protected:
     TempoEvent( const TempoEvent& Other ) : MetaEvent( Other ), Tempo( Other.Tempo ) {}
   public:
-    TempoEvent( int Tempo0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Tempo( Tempo0 ) {}
+    TempoEvent( int Tempo0, TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::Tempo, Time0 ), Tempo( Tempo0 ) {}
     int tempo() const { return Tempo; }
     Event* clone() const { return new TempoEvent( *this ); }
     void print( std::ostream& Stream ) const;
@@ -279,7 +280,7 @@ namespace MuTraMIDI {
     SMTPEOffsetEvent( const SMTPEOffsetEvent& Other ) : MetaEvent( Other ), Hour( Other.Hour ), Minute( Other.Minute ), Second( Other.Second ), Frame( Other.Frame ), Hundredths( Other.Hundredths ) {}
   public:
     SMTPEOffsetEvent( int Hour0 = 0, int Minute0 = 0, int Second0 = 0, int Frame0 = 0, int Hundredths0 = 0, TimeuS Time0 = -1 )
-      : MetaEvent( Time0 ), Hour( Hour0 ), Minute( Minute0 ), Second( Second0 ), Frame( Frame0 ), Hundredths( Hundredths0 ) {}
+      : MetaEvent( MetaEvent::SMTPEOffset, Time0 ), Hour( Hour0 ), Minute( Minute0 ), Second( Second0 ), Frame( Frame0 ), Hundredths( Hundredths0 ) {}
     int hour() const { return Hour; }
     int minute() const { return Minute; }
     int second() const { return Second; }
@@ -301,8 +302,8 @@ namespace MuTraMIDI {
     TimeSignatureEvent( const TimeSignatureEvent& Other )
       : MetaEvent( Other ), Numerator( Other.Numerator ), Denominator( Other.Denominator ), ClickClocks( Other.ClickClocks ), ThirtySeconds( Other.ThirtySeconds ) {}
   public:
-    TimeSignatureEvent( int Numerator0, int Denominator0, int ClickClocks0, int ThirtySeconds0 = 8, TimeuS Time0 = -1 )
-      : MetaEvent( Time0 ), Numerator( Numerator0 ), Denominator( Denominator0 ), ClickClocks( ClickClocks0 ), ThirtySeconds( ThirtySeconds0 ) {}
+    TimeSignatureEvent( int Numerator0, int Denominator0, int ClickClocks0 = 24, int ThirtySeconds0 = 8, TimeuS Time0 = -1 )
+      : MetaEvent( MetaEvent::TimeSignature, Time0 ), Numerator( Numerator0 ), Denominator( Denominator0 ), ClickClocks( ClickClocks0 ), ThirtySeconds( ThirtySeconds0 ) {}
     int numerator() const { return Numerator; }
     int denominator() const { return Denominator; }
     int click_clocks() const { return ClickClocks; }
@@ -321,7 +322,7 @@ namespace MuTraMIDI {
   protected:
     KeySignatureEvent( const KeySignatureEvent& Other ) : MetaEvent( Other ), Tonal( Other.Tonal ), Minor( Other.Minor ) {}
   public:
-    KeySignatureEvent( int Tonal0, bool Minor0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Tonal( Tonal0 ), Minor( Minor0 ) {}
+    KeySignatureEvent( int Tonal0, bool Minor0, TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::KeySignature, Time0 ), Tonal( Tonal0 ), Minor( Minor0 ) {}
     int tonal() const { return Tonal; }
     bool minor() const { return Minor; }
 
@@ -337,7 +338,7 @@ namespace MuTraMIDI {
   protected:
     SequencerMetaEvent( const SequencerMetaEvent& Other );
   public:
-    SequencerMetaEvent( int Length0 = 0, unsigned char* Data0 = 0, TimeuS Time0 = -1 ) : MetaEvent( Time0 ), Length( Length0 ), Data( Data0 ) {}
+    SequencerMetaEvent( int Length0 = 0, unsigned char* Data0 = 0, TimeuS Time0 = -1 ) : MetaEvent( MetaEvent::SequencerMeta, Time0 ), Length( Length0 ), Data( Data0 ) {}
     ~SequencerMetaEvent() { if( Data )	delete [] Data; }
     int length() const { return Length; }
     const unsigned char* data() const { return Data; }
