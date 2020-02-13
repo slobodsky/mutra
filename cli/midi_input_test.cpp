@@ -1,5 +1,6 @@
 // #include <midi/linux/input_device.hpp>
 #include <midi/midi_files.hpp>
+#include <midi/midi_utility.hpp>
 #include "star_lighter.hpp"
 #include <fstream>
 using std::string;
@@ -13,39 +14,10 @@ using MuTraMIDI::Event;
 using MuTraMIDI::EventsList;
 using MuTraMIDI::MIDITrack;
 using MuTraMIDI::MIDISequence;
+using MuTraMIDI::EventsPrinter;
+using MuTraMIDI::Recorder;
 
 //#define USE_LIGHTS
-
-class EventsPrinter : public InputDevice::Client {
-public:
-  EventsPrinter() : Li( nullptr ) {
-#ifdef USE_LIGHTS
-      Li = new StarLighter( "/dev/ttyACM0" );
-      Li->high( 77 );
-      Li->low( 36 );
-      Li->stars_for_note( 3 );
-
-      Li->start();
-#endif
-  } // EventsPrinter()
-  ~EventsPrinter() { if( Li ) delete Li; }
-  void event_received( const Event& Ev ) {
-    Ev.print( cout ); cout << endl;
-    if( Li ) Ev.play( *Li );
-  }
-private:
-  StarLighter* Li;
-}; // EventsPrinter
-
-class Recorder : public InputDevice::Client, public MIDISequence {
-  Event::TimeuS mTempo;
-public:
-  Recorder( int BeatsPerMinute = 120 ) : mTempo( 60*1000000 / BeatsPerMinute ) {}
-  void event_received( const Event& Ev ) {
-    int Time = Ev.time() * division() / mTempo;
-    add_event( Time, Ev.clone() );
-  }
-}; // Recorder
 
 int main( int argc, char* argv[] ) {
 #if 0

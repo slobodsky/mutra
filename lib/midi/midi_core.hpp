@@ -18,6 +18,8 @@
  */
 namespace MuTraMIDI {
   class Event;
+  uint64_t get_time_us();
+
   //! \note Поскольку MIDI-файлы разделены на "чанки" известной длины, а в некоторых сообщениях явно указана длина, нам может быть необходимо знать, сколько байт было получено/записано для значений
   //! переменной длины.
   // static int get_int( const unsigned char* Pos, int Length );

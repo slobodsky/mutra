@@ -1,4 +1,5 @@
 #include <midi/midi_files.hpp>
+#include <midi/midi_utility.hpp>
 #include "star_lighter.hpp"
 #include <unistd.h>
 using std::cout;
@@ -7,6 +8,7 @@ using std::endl;
 using std::flush;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
+using MuTraMIDI::MultiSequencer;
 
 int main( int argc, char* argv[] )
 {

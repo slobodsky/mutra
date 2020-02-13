@@ -22,8 +22,16 @@ using std::memcpy;
 using std::endl;
 using std::cout;
 using std::cerr;
+#include <sys/time.h>
+#include <unistd.h>
 
 namespace MuTraMIDI {
+  uint64_t get_time_us() {
+    timeval TV;
+    gettimeofday( &TV, nullptr );
+    return TV.tv_sec * uint64_t( 1000000 ) + TV.tv_usec;
+  } // get_time_us()
+
   int get_int( istream& Str, int Size ) {
     int Val = 0;
     for( int I = 0; I < Size && Str.good() && !Str.eof(); ++I ) {

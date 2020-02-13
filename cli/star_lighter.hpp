@@ -3,34 +3,6 @@
 #include <midi/midi_core.hpp>
 #include <string>
 
-class MultiSequencer : public MuTraMIDI::Sequencer {
-public:
-  void add( MuTraMIDI::Sequencer* Seq );
-  void remove( MuTraMIDI::Sequencer* Seq );
-  void start();
-  void name( std::string Text );
-  void copyright( std::string Text );
-  void text( std::string Text );
-  void lyric( std::string Text );
-  void instrument( std::string Text );
-  void marker( std::string Text );
-  void cue( std::string Text );
-
-  void meter( int Numerator, int Denominator );
-
-  void note_on( int Channel, int Note, int Velocity );
-  void note_off( int Channel, int Note, int Velocity );
-  void after_touch( int Channel, int Note, int Velocity );
-  void program_change( int Channel, int NewProgram );
-  void control_change( int Channel, int Control, int Value );
-  void pitch_bend( int Channel, int Bend );
-  void division( unsigned MIDIClockForQuarter );
-  void tempo( unsigned uSecForQuarter );
-  void wait_for( unsigned WaitClock );
-private:
-  std::vector<MuTraMIDI::Sequencer*> Clients;
-}; // MultiSequencer
-
 class StarLighter : public MuTraMIDI::Sequencer {
   struct Color {
     uint8_t Red;
