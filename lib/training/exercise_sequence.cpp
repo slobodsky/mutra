@@ -30,9 +30,11 @@ namespace MuTraTrain {
 	string Name;
 	Ex >> Name >> TargetTracks >> Channels >> StartPoint >> StopPoint >> StartThreshold >> StopThreshold >> VelocityThreshold >> TempoSkew;
 #ifdef MUTRA_DEBUG
-	cout << "Load play from " << Name << endl;
+	cout << "Load play from " << Name << " tracks: " << TargetTracks << " channels: " << Channels << " [" << StartPoint << "-" << StopPoint << " limits: start: " << StartThreshold
+	     << " stop: " << StopThreshold << " velocity: " << VelocityThreshold << " tempo " << TempoSkew / 100.0 << "%" << endl;
 #endif
 	Play = new MIDISequence( Name );
+	start();
 	Play->play( *this );
 #ifdef SHOW_WINDOWS_TAILS
 	Stats.clear();

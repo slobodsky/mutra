@@ -1,6 +1,8 @@
 #include <midi/midi_events.hpp>
 #include "metronome.hpp"
 #include <unistd.h>
+using std::cerr;
+using std::endl;
 
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::Event;
@@ -13,6 +15,10 @@ namespace MuTraTrain {
     mStartTime = get_time_us();
     mLastTime = mStartTime;
     mDelay = Delay;
+    if( mThread.joinable() ) {
+      cerr << "Try to assign to joinable thread." << endl;
+      mThread.detach();
+    }
     mThread = std::thread( [this]() {
 			     int64_t Target = this->mStartTime + this->mDelay;
 			     while( this->mDelay > 0 ) {
@@ -31,12 +37,14 @@ namespace MuTraTrain {
     mThread.join();
   } // stop()
 
-  void Metronome::start() { mTimer.start( mTempo ); }
+  MetronomeOptions::MetronomeOptions() : mTempo( 120 ), mBeat( 4 ), mMeasure( 2 ), mNote( 42 ), mVelocity( 64 ), mMediumNote( 38 ), mMediumVelocity( 80 ), mPowerNote( 35 ), mPowerVelocity( 100 ) {
+  } // MetronomeOptions()
+  void Metronome::start() { mTimer.start( mTempouS ); }
   void Metronome::stop() { mTimer.stop(); }
   void Metronome::timer( int Count, int64_t Target, int64_t Now ) {
     if( mSequencer ) {
-      mSequencer->note_on( 9, 42, 80 );
-      if( ( Count % mMeterCount ) == 0 ) mSequencer->note_on( 9, 35, 100 );
+      mSequencer->note_on( 9, mOptions.note(), mOptions.velocity() );
+      if( ( Count % mOptions.beat() ) == 0 ) mSequencer->note_on( 9, mOptions.power_note(), mOptions.power_velocity() );
     }
   } // tiemr( int, int64_t, int64_t )
 

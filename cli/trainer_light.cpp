@@ -58,6 +58,10 @@ int main() {
 	  Dev->add_client( Ex );
 	  if( Ex.load( MIDIName ) ) {
 	    cout << "Exercise loaded. Original start: " << Ex.OriginalStart << " length: " << Ex.OriginalLength << endl;
+	    if( Ex.OriginalLength < 0 ) {
+	      cerr << "Exercise is empty. Skip it." << endl;
+	      continue;
+	    }
 #ifdef MUTRA_DEBUG
 	    {
 	      cout << "Original track: ";
@@ -79,7 +83,7 @@ int main() {
 	      //! \todo Make some callback when the exercise time is out.
 	      while( Ex.PlayedStart < 0 ) sleep( 1 );
 	      if( StartTime == 0 ) StartTime = get_time_us();
-	      cout << "Play's started @" << StartTime << "us " << Ex.PlayedStart << " pulses" << endl;
+	      cout << "Play's started @" << StartTime << "us " << Ex.PlayedStart << " pulses. Original length is " << Ex.OriginalLength << endl;
 	      while( !Ex.beat( get_time_us() - StartTime ) ) sleep( 1 );
 	      Metr.stop();
 	      ExerciseSequence::NotesStat Stat;

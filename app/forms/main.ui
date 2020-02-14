@@ -31,7 +31,14 @@
     <addaction name="separator"/>
     <addaction name="ActionQuit"/>
    </widget>
+   <widget class="QMenu" name="menu_Edit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="ActionOptions"/>
+   </widget>
    <addaction name="menuThis_is_an_application_stub"/>
+   <addaction name="menu_Edit"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QDockWidget" name="PianoBoard">
@@ -48,7 +55,7 @@
   </widget>
   <action name="ActionOpen">
    <property name="text">
-    <string>&amp;Open</string>
+    <string>&amp;Open...</string>
    </property>
   </action>
   <action name="action_Quit">
@@ -59,6 +66,11 @@
   <action name="ActionQuit">
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+  </action>
+  <action name="ActionOptions">
+   <property name="text">
+    <string>&amp;Options...</string>
    </property>
   </action>
  </widget>
