@@ -84,6 +84,7 @@ namespace MuTraMIDI {
     void print( std::ostream& Stream );
     void play( Sequencer& S );
     bool write( std::ostream& File ) const;
+    bool close_and_write( const std::string& FileName );
   }; // MIDISequence
 } // MuTraMIDI
 #endif // MUTRA_MIDI_FILES_HPP

@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QDialog>
+#include <midi/midi_utility.hpp>
 #include <training/metronome.hpp>
 #include <training/exercise_sequence.hpp>
 
@@ -55,12 +56,19 @@ namespace MuTraWidgets {
   public:
     MainWindow( QWidget* Parent = nullptr );
     ~MainWindow();
+    void stop_recording();
   public slots:
     void open_file();
+    bool save_file();
+    bool save_file_as();
     void edit_options();
     void toggle_metronome( bool On );
+    void toggle_record( bool On );
+    bool close_file();
   private:
+    std::string mMIDIFileName;
     MuTraMIDI::MIDISequence* mMIDI;
+    MuTraMIDI::Recorder* mRec;
     MuTraMIDI::InputDevice* mInput;
     MuTraMIDI::Sequencer* mSequencer;
     MuTraTrain::Metronome* mMetronome;

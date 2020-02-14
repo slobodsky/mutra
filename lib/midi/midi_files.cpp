@@ -5,6 +5,7 @@ using std::ios;
 using std::istream;
 using std::ostream;
 using std::ifstream;
+using std::ofstream;
 using std::for_each;
 using std::string;
 using std::vector;
@@ -286,4 +287,9 @@ namespace MuTraMIDI {
     for_each( Tracks.begin(), Tracks.end(), Helpers::Writer( File ) );
     return File.good();
   } // write( std::ostream& ) const
+  bool MIDISequence::close_and_write( const string& FileName ) {
+    close_last_track();
+    ofstream File( FileName );
+    return write( File );
+  } // close_and_write( const string& )
 } // MuTraMIDI

@@ -2,11 +2,13 @@
 #include <QFileDialog>
 #include <QToolBar>
 #include <QGraphicsView>
+#include <QMessageBox>
 #include "widgets.hpp"
 #include <QDebug>
 #include "forms/ui_main.h"
 #include "forms/ui_settings_dialog.h"
 #include "forms/ui_metronome_settings.h"
+using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::NoteEvent;
@@ -151,24 +153,32 @@ namespace MuTraWidgets {
     int Measure;
   }; // NotesListBuilder
   
-  MainWindow::MainWindow( QWidget* Parent ) : QMainWindow( Parent ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr ) {
+  MainWindow::MainWindow( QWidget* Parent ) : QMainWindow( Parent ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr ) {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
     mUI->ActionOpen->setShortcut( QKeySequence::Open );
     connect( mUI->ActionOpen, SIGNAL( triggered() ), SLOT( open_file() ) );
+    mUI->ActionSave->setShortcut( QKeySequence::Save );
+    connect( mUI->ActionSave, SIGNAL( triggered() ), SLOT( save_file() ) );
+    mUI->ActionSaveAs->setShortcut( QKeySequence::SaveAs );
+    connect( mUI->ActionSaveAs, SIGNAL( triggered() ), SLOT( save_file_as() ) );
     connect( mUI->ActionOptions, SIGNAL( triggered() ), SLOT( edit_options() ) );
     mUI->ActionQuit->setShortcut( QKeySequence::Quit );
     qApp->connect( mUI->ActionQuit, SIGNAL( triggered() ), SLOT( quit() ) );
     setCentralWidget( new QGraphicsView( this ) );
     QToolBar* ExerciseBar = addToolBar( tr( "Exercise" ) );
-    QAction* ActionMetronome = ExerciseBar->addAction( tr( "Metronome" ) );
-    ActionMetronome->setCheckable( true );
-    connect( ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
+    ExerciseBar->addAction( mUI->ActionMetronome );
+    connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
+    ExerciseBar->addAction( mUI->ActionRecord );
+    connect( mUI->ActionRecord, SIGNAL( triggered( bool ) ), SLOT( toggle_record( bool ) ) );
     if( mSequencer = Sequencer::get_instance( "alsa://24" ) ) {
       qDebug() << "Sequencer created.";
       mSequencer->start();
       mMetronome = new MuTraTrain::Metronome( mSequencer );
+      mMetronome->options( Application::get()->metronome() );
     } else statusBar()->showMessage( "Can't get sequencer" );
+    mInput = InputDevice::get_instance( "rtmidi://2" );
+    if( !mInput ) QMessageBox::warning( this, tr( "Device problem" ), tr( "Can't open input device." ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
     if( mMetronome ) delete mMetronome;
@@ -182,13 +192,14 @@ namespace MuTraWidgets {
   QColor Colors[] = { QColor( 255, 255, 255, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
   
   void MainWindow::open_file() {
-    QString SelFilter;
-    QString FileName = QFileDialog::getOpenFileName( this, tr( "Open File" ), QString(), tr( "Lessons (*.mles);;Exercises (*.mex);;MIDI files (*.mid);;All files (*.*)" ), &SelFilter );
+    QString SelFilter = "MIDI files (*.mid)";
+    QString FileName = QFileDialog::getOpenFileName( this, tr( "Open File" ), QString::fromStdString( mMIDIFileName ), tr( "Lessons (*.mles);;Exercises (*.mex);;MIDI files (*.mid);;All files (*.*)" ),
+						     &SelFilter );
     if( !FileName.isEmpty() ) {
-      qDebug() << "Selected:" << FileName << "of type" << SelFilter;
+      if( !close_file() ) return;
       if( FileName.endsWith( ".mid" ) ) {
-	if( mMIDI ) delete mMIDI;
-	mMIDI = new MIDISequence( FileName.toStdString() );
+	mMIDIFileName = FileName.toStdString();
+	mMIDI = new MIDISequence( mMIDIFileName );
 	if( QGraphicsView* View = qobject_cast<QGraphicsView*>( centralWidget() ) ) {
 	  QGraphicsScene* Sc = new QGraphicsScene( View );
 	  int Div = mMIDI->division();
@@ -232,23 +243,76 @@ namespace MuTraWidgets {
       }
     }
   } // open_file()
+  bool MainWindow::save_file() {
+    if( !mMIDI ) return true;
+    if( mMIDIFileName.empty() ) return save_file_as();
+    return mMIDI->close_and_write( mMIDIFileName );
+  } // save_file()
+  bool MainWindow::save_file_as() {
+    if( !mMIDI ) return true;
+    QString NewName = QFileDialog::getSaveFileName( this, tr( "Save File" ), QString::fromStdString( mMIDIFileName ), tr( "MIDI files (*.mid);;All files (*.*)" ) );
+    if( NewName.isEmpty() ) return false;
+    if( !mMIDI->close_and_write( NewName.toStdString() ) ) {
+      QMessageBox::warning( this, tr( "Save file" ), tr( "Can't write the MIDI file." ) );
+      return false;
+    }
+    mMIDIFileName = NewName.toStdString();
+    return true;
+  } // save_file_as()
+
+  bool MainWindow::close_file() {
+    stop_recording();
+    if( mMIDI ) { //! \todo If the file is modified then ask to save it.
+      delete mMIDI;
+      mMIDI = nullptr;
+    }
+    return true;
+  } // close_file()
 
   void MainWindow::edit_options() {
     SettingsDialog Dlg( this );
     if( mMetronome ) Dlg.metronome( mMetronome->options() );
     else Dlg.metronome( Application::get()->metronome() );
     if( Dlg.exec() ) {
-      if( mMetronome ) mMetronome->options( Dlg.metronome() );
-      else Application::get()->metronome( Dlg.metronome() );
+      if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
+	mMetronome->options( Dlg.metronome() );
+      //! \todo Change current midi file metronome settings.
+      if( !mMIDI ) Application::get()->metronome( Dlg.metronome() );
     }
   } // edit_options()
-
   void MainWindow::toggle_metronome( bool On ) {
     if( mMetronome && mSequencer ) {
       if( On ) { mMetronome->start(); qDebug() << "Start metronome."; }
       else { mMetronome->stop(); qDebug() << "Stop metronome."; }
     }
   } // toggle_metronome( bool )
+  void MainWindow::stop_recording() {
+    if( !mRec ) return;
+    if( mMetronome ) mMetronome->stop();
+    if( mInput ) {
+      mInput->stop();
+      mInput->remove_client( *mRec );
+    }
+    mRec = nullptr;
+    mUI->ActionRecord->setChecked( false );
+  } // stop_recording()
+  void MainWindow::toggle_record( bool On ) {
+    if( On ) {
+      if( mRec ) return;
+      if( !close_file() || !mMetronome || !mInput ) {
+	mUI->ActionRecord->setChecked( false );
+	return;
+      }
+      //! \todo Check if we have a metronome & create one if needed
+      mRec = new MuTraMIDI::Recorder( mMetronome->options().tempo() );
+      mMIDI = mRec;
+      //! \todo Ensure we have an input device
+      mInput->add_client( *mRec );
+      mInput->start();
+      mMetronome->start();
+    }
+    else stop_recording();
+  } // toggle_record( bool )
   
   Application::Application( int& argc, char** argv ) : QApplication( argc, argv ) {
     setOrganizationName( "Nick Slobodsky" );

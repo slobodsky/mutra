@@ -28,17 +28,27 @@
      <string>&amp;File</string>
     </property>
     <addaction name="ActionOpen"/>
+    <addaction name="ActionSave"/>
+    <addaction name="ActionSaveAs"/>
     <addaction name="separator"/>
     <addaction name="ActionQuit"/>
    </widget>
-   <widget class="QMenu" name="menu_Edit">
+   <widget class="QMenu" name="menuExerci_se">
     <property name="title">
-     <string>&amp;Edit</string>
+     <string>Exerci&amp;se</string>
+    </property>
+    <addaction name="ActionMetronome"/>
+    <addaction name="ActionRecord"/>
+   </widget>
+   <widget class="QMenu" name="menu_Options">
+    <property name="title">
+     <string>&amp;Options</string>
     </property>
     <addaction name="ActionOptions"/>
    </widget>
    <addaction name="menuThis_is_an_application_stub"/>
-   <addaction name="menu_Edit"/>
+   <addaction name="menuExerci_se"/>
+   <addaction name="menu_Options"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QDockWidget" name="PianoBoard">
@@ -54,6 +64,10 @@
    <widget class="QWidget" name="dockWidgetContents_2"/>
   </widget>
   <action name="ActionOpen">
+   <property name="icon">
+    <iconset theme="document-open">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
    <property name="text">
     <string>&amp;Open...</string>
    </property>
@@ -64,6 +78,10 @@
    </property>
   </action>
   <action name="ActionQuit">
+   <property name="icon">
+    <iconset theme="application-exit">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
    <property name="text">
     <string>&amp;Quit</string>
    </property>
@@ -73,7 +91,49 @@
     <string>&amp;Options...</string>
    </property>
   </action>
+  <action name="ActionMetronome">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../app.qrc">
+     <normaloff>:/images/metronome.svg</normaloff>:/images/metronome.svg</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Metronome</string>
+   </property>
+  </action>
+  <action name="ActionRecord">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset theme="media-record">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Record</string>
+   </property>
+  </action>
+  <action name="ActionSaveAs">
+   <property name="icon">
+    <iconset theme="document-save-as"/>
+   </property>
+   <property name="text">
+    <string>Save &amp;as...</string>
+   </property>
+  </action>
+  <action name="ActionSave">
+   <property name="icon">
+    <iconset theme="document-save"/>
+   </property>
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="../app.qrc"/>
+ </resources>
  <connections/>
 </ui>

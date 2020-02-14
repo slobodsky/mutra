@@ -64,6 +64,7 @@ namespace MuTraTrain {
     enum Duration { Whole = 0, Half = 1, Quarter = 2, Eighth = 3, Sixteenth = 4, ThirtySecond = 5, SixtyFourth = 6 };
     Metronome( MuTraMIDI::Sequencer* Seq ) : mTempouS( 60000000 / 120 ), mDivision( 96 ), mSequencer( Seq ), mTimer( *this ) {}
     // Stop metronome before changing this values
+    //! \todo use tempo for BPM & tempo_us for microseconds
     //! \todo Сделать корректную настройку темпа в миросекундах и работу метронома для долей отличных от четверти. Пока с этим полные непонятки.
     //! \todo Make changes on the fly for files with changing tempo
     //! Set microseconds count for a quarter note

@@ -154,7 +154,9 @@ namespace MuTraMIDI {
   } // add_client( Client& )
   void InputDevice::remove_client( Client& Cli )
   {
-    Clients.erase( find( Clients.begin(), Clients.end(), &Cli ) );
+    auto It = find( Clients.begin(), Clients.end(), &Cli );
+    if( It == Clients.end() ) return;
+    Clients.erase( It );
     Cli.disconnected( *this );
   } // remove_client( Client* )
   void InputDevice::event_received( const Event& Ev ) { for( int I = 0; I < Clients.size(); ++I ) if( Clients[ I ] ) Clients[ I ]->event_received( Ev ); }

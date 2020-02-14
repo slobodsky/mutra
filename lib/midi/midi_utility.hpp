@@ -9,6 +9,7 @@ namespace MuTraMIDI {
     void event_received( const Event& Ev );
   }; // EventsPrinter
 
+  //! \todo Sync with metronome (so move it from the 
   class Recorder : public InputDevice::Client, public MIDISequence {
     Event::TimeuS mTempo;
   public:

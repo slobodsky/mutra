@@ -115,6 +115,9 @@
      </item>
      <item row="3" column="2">
       <widget class="QSpinBox" name="MediumVelocity">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
@@ -138,13 +141,6 @@
      </item>
      <item row="1" column="1">
       <widget class="QComboBox" name="PowerNote"/>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="label_5">
-       <property name="text">
-        <string>Medium</string>
-       </property>
-      </widget>
      </item>
      <item row="1" column="2">
       <widget class="QSpinBox" name="PowerVelocity">
@@ -182,7 +178,11 @@
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QComboBox" name="MediumNote"/>
+      <widget class="QComboBox" name="MediumNote">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
      </item>
      <item row="0" column="0">
       <widget class="QLabel" name="label_6">
@@ -202,6 +202,16 @@
       <widget class="QLabel" name="label_8">
        <property name="text">
         <string>Velocity</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QCheckBox" name="checkBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Medium</string>
        </property>
       </widget>
      </item>
