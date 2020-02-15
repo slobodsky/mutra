@@ -9,11 +9,26 @@
 
 namespace Ui {
   class MainWindow;
+  class DevicesSettings;
   class MetronomeSettings;
   class SettingsDialog;
 } // Ui
 
 namespace MuTraWidgets {
+  class SystemOptions {
+  public:
+    SystemOptions();
+    const std::string& midi_input() const { return mMIDIInput; }
+    SystemOptions& midi_input( const std::string& NewInput ) { mMIDIInput = NewInput; return *this; }
+    const std::string& midi_output() const { return mMIDIOutput; }
+    SystemOptions& midi_output( const std::string& NewOutput ) { mMIDIOutput = NewOutput; return *this; }
+    bool midi_echo() const { return mMIDIEcho; }
+    SystemOptions& midi_echo( bool NewEcho ) { mMIDIEcho = NewEcho; return *this; }
+  private:
+    std::string mMIDIInput;
+    std::string mMIDIOutput;
+    bool mMIDIEcho;
+  }; // SystemOptions
   struct ExerciseOptions {
     ExerciseOptions();
     void load_from_settings();
@@ -29,11 +44,14 @@ namespace MuTraWidgets {
     static Application* get() { return qobject_cast<Application*>( qApp ); }
     Application( int& argc, char** argv );
     ~Application();
-    const MuTraTrain::MetronomeOptions& metronome() const { return Metronome; }
-    void metronome( const MuTraTrain::MetronomeOptions& NewOptions ) { Metronome = NewOptions; }
+    const MuTraTrain::MetronomeOptions& metronome_options() const { return mMetronomeOptions; }
+    void metronome_options( const MuTraTrain::MetronomeOptions& NewOptions ) { mMetronomeOptions = NewOptions; }
+    const SystemOptions& system_options() const { return mSystemOptions; }
+    void system_options( const SystemOptions& NewOptions ) { mSystemOptions = NewOptions; }
   private:
-    MuTraTrain::MetronomeOptions Metronome;
-    ExerciseOptions Exercise;
+    MuTraTrain::MetronomeOptions mMetronomeOptions;
+    SystemOptions mSystemOptions;
+    ExerciseOptions mExercise;
   }; // Application
 
   class SettingsDialog : public QDialog {
@@ -43,11 +61,15 @@ namespace MuTraWidgets {
     ~SettingsDialog();
     const MuTraTrain::MetronomeOptions& metronome() const { return mMetronome; }
     void metronome( const MuTraTrain::MetronomeOptions& NewOptions );
+    const SystemOptions& system() const { return mSystem; }
+    void system( const SystemOptions& NewOptions );
   public slots:
     void accept();
   private:
+    SystemOptions mSystem;
     MuTraTrain::MetronomeOptions mMetronome;
     Ui::SettingsDialog* mDlg;
+    Ui::DevicesSettings* mDevicesPage;
     Ui::MetronomeSettings* mMetronomePage;
   }; // SettingsDialog
 

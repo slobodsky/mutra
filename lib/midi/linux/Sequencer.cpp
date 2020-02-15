@@ -1,4 +1,5 @@
 #include "Sequencer.hpp"
+#include <sstream>
 #include "../midi_events.hpp"
 using std::ostream;
 using std::flush;
@@ -8,10 +9,50 @@ using std::string;
 using std::cerr;
 using std::endl;
 using std::cout;
+using std::vector;
+using std::stringstream;
 
 typedef unsigned char BYTE;
 
 namespace MuTraMIDI {
+  vector<Sequencer::Info> Sequencer::get_available_devices( const string& Backend ) {
+    vector<Sequencer::Info> Result;
+    if( Backend.empty() || Backend == "alsa" ) {
+      snd_seq_t* Seq = nullptr;
+      if( snd_seq_open( &Seq, "default", SND_SEQ_OPEN_OUTPUT, 0 ) < 0 )	cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
+      else {
+	snd_seq_client_info_t* ClientInfo = nullptr;
+	if( snd_seq_client_info_malloc( &ClientInfo ) < 0 ) cerr << "Can't allocate memory ALSA client info." << endl;
+	else {
+	  snd_seq_port_info_t* PortInfo = nullptr;
+	  if( snd_seq_port_info_malloc( &PortInfo ) < 0 ) cerr << "Can't allocate memory ALSA port info." << endl;
+	  else {
+	    snd_seq_client_info_set_client( ClientInfo, -1 );
+	    while( snd_seq_query_next_client( Seq, ClientInfo ) >= 0 ) {
+	      int Client = snd_seq_client_info_get_client( ClientInfo );
+	      snd_seq_port_info_set_client( PortInfo, Client );
+	      snd_seq_port_info_set_port( PortInfo, -1 );
+	      while( snd_seq_query_next_port( Seq, PortInfo ) >= 0 ) {
+		if( ( snd_seq_port_info_get_type( PortInfo ) & SND_SEQ_PORT_TYPE_MIDI_GENERIC )
+		    && ( snd_seq_port_info_get_capability( PortInfo ) & ( SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE ) ) == ( SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE ) ) {
+		  stringstream URI;
+		  URI << "alsa://" << Client;
+		  int Port = snd_seq_port_info_get_port( PortInfo );
+		  if( Port ) URI << ":" << Port;
+		  Info I( snd_seq_port_info_get_name( PortInfo ), URI.str() );
+		  cout << "Sequencer port: " << I.name() << " " << I.uri() << endl;
+		  Result.push_back( I );
+		}
+	      }
+	    }
+	    snd_seq_port_info_free( PortInfo );
+	  }
+	  snd_seq_client_info_free( ClientInfo );
+	}
+      }
+    }
+    return Result;
+  } // get_available_devices( const string& )
   Sequencer* Sequencer::get_instance( const string& URI ) {
     if( URI.empty() ) return new ALSASequencer();
     if( URI.substr( 0, 7 ) == "alsa://" ) {
@@ -19,7 +60,7 @@ namespace MuTraMIDI {
       return new ALSASequencer( Client );
     }
     return nullptr;
-  } // create_default()
+  } // get_instance( const string& URI )
 
   LinuxSequencer::LinuxSequencer( ostream& Device0 ) : Device( Device0 )
   {} // конструктор по девайсу
@@ -113,7 +154,7 @@ namespace MuTraMIDI {
     int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 );
     if( Err < 0 ) cerr << "Can't open sequencer." << Err << endl;
     Err = snd_seq_set_client_name( Seq, "Wholeman" );
-    if( Err < 0 ) cerr << "Can't client name." << Err << endl;
+    if( Err < 0 ) cerr << "Can't set client name." << Err << endl;
     Client = snd_seq_client_id( Seq );
     if( Client < 0 ) cerr << "Can't get client id." << Err << endl;
     else cerr << "Client: " << Client << endl;

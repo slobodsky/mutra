@@ -8,6 +8,7 @@
 #include "forms/ui_main.h"
 #include "forms/ui_settings_dialog.h"
 #include "forms/ui_metronome_settings.h"
+#include "forms/ui_devices_settings.h"
 using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
@@ -16,6 +17,21 @@ using MuTraTrain::MetronomeOptions;
 using std::vector;
 
 namespace MuTraWidgets {
+  void load_from_settings( SystemOptions& Options ) {
+    QSettings Set;
+    Options.midi_input( Set.value( "System/MIDIInput", QString::fromStdString( Options.midi_input() ) ).toString().toStdString() )
+      .midi_output( Set.value( "System/MIDIOutput", QString::fromStdString( Options.midi_output() ) ).toString().toStdString() )
+      .midi_echo( Set.value( "System/MIDIEcho", Options.midi_echo() ).toBool() );
+  } // load_from_settings( MetronomeOptions& 
+  void save_to_settings( const SystemOptions& Options ) {
+    QSettings Set;
+    Set.setValue( "System/MIDIInput", QString::fromStdString( Options.midi_input() ) );
+    Set.setValue( "System/MIDIOutput", QString::fromStdString( Options.midi_output() ) );
+    Set.setValue( "System/MIDIEcho", Options.midi_echo() );
+  } // save_to_settings( const SystemOptions& )
+
+  SystemOptions::SystemOptions() : mMIDIEcho( false ) {}
+  
   void load_from_settings( MetronomeOptions& Options ) {
     QSettings Set;
     // Load metronome settings
@@ -60,7 +76,14 @@ namespace MuTraWidgets {
   SettingsDialog::SettingsDialog( QWidget* Parent ) : QDialog( Parent ) {
     mDlg = new Ui::SettingsDialog;
     mDlg->setupUi( this );
+    //! \todo Move the dialogs to separate objects.
     QWidget* Page = new QWidget( this );
+    mDevicesPage = new Ui::DevicesSettings;
+    mDevicesPage->setupUi( Page );
+    for( const InputDevice::Info& Dev : InputDevice::get_available_devices() ) mDevicesPage->MIDIInput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
+    for( const Sequencer::Info& Dev : Sequencer::get_available_devices() ) mDevicesPage->MIDIOutput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
+    mDlg->SettingsTabs->addTab( Page, tr( "Devices" ) );
+    Page = new QWidget( this );
     mMetronomePage = new Ui::MetronomeSettings;
     mMetronomePage->setupUi( Page );
     for( int I = NoteEvent::PercussionFirst; I <= NoteEvent::PercussionLast; ++I ) {
@@ -74,6 +97,11 @@ namespace MuTraWidgets {
     if( mMetronomePage ) delete mMetronomePage;
     if( mDlg ) delete mDlg;
   } // ~SettingsDialog()
+  void SettingsDialog::system( const SystemOptions& NewOptions ) {
+    mDevicesPage->MIDIInput->setCurrentIndex( mDevicesPage->MIDIInput->findData( QString::fromStdString( NewOptions.midi_input() ) ) );
+    mDevicesPage->MIDIOutput->setCurrentIndex( mDevicesPage->MIDIOutput->findData( QString::fromStdString( NewOptions.midi_output() ) ) );
+    mDevicesPage->MIDIEcho->setChecked( mSystem.midi_echo() );
+  } // system( const SystemOptions& )
   void SettingsDialog::metronome( const MetronomeOptions& NewOptions ) {
     mMetronomePage->Beats->setValue( NewOptions.beat() );
     mMetronomePage->Measure->setCurrentIndex( NewOptions.measure() );
@@ -91,10 +119,14 @@ namespace MuTraWidgets {
       .tempo( mMetronomePage->Tempo->value() ).note( mMetronomePage->WeakNote->currentData().toInt() ).velocity( mMetronomePage->WeakVelocity->value() )
       .medium_note( mMetronomePage->MediumNote->currentData().toInt() ).medium_velocity( mMetronomePage->MediumVelocity->value() )
       .power_note( mMetronomePage->PowerNote->currentData().toInt() ).power_velocity( mMetronomePage->PowerVelocity->value() );
+    mSystem.midi_input( mDevicesPage->MIDIInput->currentData().toString().toStdString() ).midi_output( mDevicesPage->MIDIOutput->currentData().toString().toStdString() )
+      .midi_echo( mDevicesPage->MIDIEcho->isChecked() );
+#ifdef MUTRA_DEBUG
     qDebug() << "Settings accepted:\nMetronome\n\tMeter:" << mMetronomePage->Beats->value() << "/" << mMetronomePage->Measure->currentText() << "\tTempo" << mMetronomePage->Tempo->value()
 	     << "Power beat" << mMetronomePage->PowerNote->currentText() << "(" << mMetronomePage->PowerNote->currentData() << ") @" << mMetronomePage->PowerVelocity->value()
 	     << "Weak beat" << mMetronomePage->WeakNote->currentText() << "(" << mMetronomePage->WeakNote->currentData() << ") @" << mMetronomePage->WeakVelocity->value()
 	     << "Medium beat" << mMetronomePage->MediumNote->currentText() << "(" << mMetronomePage->MediumNote->currentData() << ") @" << mMetronomePage->MediumVelocity->value() << endl;
+#endif
     QDialog::accept();
   } // accept()
 
@@ -171,13 +203,14 @@ namespace MuTraWidgets {
     connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
     ExerciseBar->addAction( mUI->ActionRecord );
     connect( mUI->ActionRecord, SIGNAL( triggered( bool ) ), SLOT( toggle_record( bool ) ) );
-    if( mSequencer = Sequencer::get_instance( "alsa://24" ) ) {
+    SystemOptions SysOp = Application::get()->system_options();
+    if( mSequencer = Sequencer::get_instance( SysOp.midi_output() ) ) {
       qDebug() << "Sequencer created.";
       mSequencer->start();
       mMetronome = new MuTraTrain::Metronome( mSequencer );
-      mMetronome->options( Application::get()->metronome() );
+      mMetronome->options( Application::get()->metronome_options() );
     } else statusBar()->showMessage( "Can't get sequencer" );
-    mInput = InputDevice::get_instance( "rtmidi://2" );
+    mInput = InputDevice::get_instance( SysOp.midi_input() );
     if( !mInput ) QMessageBox::warning( this, tr( "Device problem" ), tr( "Can't open input device." ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
@@ -271,13 +304,15 @@ namespace MuTraWidgets {
 
   void MainWindow::edit_options() {
     SettingsDialog Dlg( this );
+    Dlg.system( Application::get()->system_options() );
     if( mMetronome ) Dlg.metronome( mMetronome->options() );
-    else Dlg.metronome( Application::get()->metronome() );
+    else Dlg.metronome( Application::get()->metronome_options() );
     if( Dlg.exec() ) {
       if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
 	mMetronome->options( Dlg.metronome() );
       //! \todo Change current midi file metronome settings.
-      if( !mMIDI ) Application::get()->metronome( Dlg.metronome() );
+      if( !mMIDI ) Application::get()->metronome_options( Dlg.metronome() );
+      Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
     }
   } // edit_options()
   void MainWindow::toggle_metronome( bool On ) {
@@ -320,12 +355,14 @@ namespace MuTraWidgets {
     setApplicationName( "Music Trainer" );
     setApplicationVersion( "0.0.1~preview1" );
     // was: Load standard settings (do I need it?)
-    load_from_settings( Metronome );
-    Exercise.load_from_settings();
+    load_from_settings( mSystemOptions );
+    load_from_settings( mMetronomeOptions );
+    mExercise.load_from_settings();
     // was: Create main (MDI) window.
   } // Application()
   Application::~Application() {
-    Exercise.save_to_settings();
-    save_to_settings( Metronome );
+    mExercise.save_to_settings();
+    save_to_settings( mMetronomeOptions );
+    save_to_settings( mSystemOptions );
   } // ~Application()
 } // MuTraWidgets

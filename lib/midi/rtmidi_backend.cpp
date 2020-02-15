@@ -1,10 +1,29 @@
 #include "rtmidi_backend.hpp"
+#include <sstream>
 using std::vector;
+using std::string;
 using std::cout;
 using std::cerr;
 using std::endl;
+using std::stringstream;
 
 namespace MuTraMIDI {
+  vector<InputDevice::Info> InputDevice::get_available_devices( const string& Backend ) {
+    vector<InputDevice::Info> Result;
+    if( Backend.empty() || Backend == "rtmidi" ) {
+      RtMidiIn In;
+      int PortsCount = In.getPortCount();
+      for( int I = 0; I < PortsCount; ++I ) {
+	stringstream URI;
+	URI << "rtmidi://" << I;
+	Info Inf( In.getPortName( I ), URI.str() );
+	cout << "Input device: " << Inf.name() << " " << Inf.uri() << endl;
+	Result.push_back( Inf );
+      }
+    }
+    return Result;
+  } // get_available_devices( const string& )
+
   void RtMIDIInputDevice::message_received( double Delta, vector<unsigned char>* Msg, void* This ) {
     if( This ) static_cast<RtMIDIInputDevice*>( This )->message_received( Delta, Msg );
   } // message_received( double, std::vector<unsigned char>, void* )

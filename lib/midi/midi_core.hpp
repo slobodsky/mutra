@@ -43,6 +43,16 @@ namespace MuTraMIDI {
     unsigned Tempo;	//!< Длительность четвертной ноты в микросекундах
     int Track;		//!< Текущая дорожка
   public:
+    class Info {
+    public:
+      Info( const std::string& Name = std::string(), const std::string& URI = std::string() ) : mName( Name ), mURI( URI ) {}
+      const std::string& name() const { return mName; }
+      const std::string& uri() const { return mURI; }
+    private:
+      std::string mName;
+      std::string mURI;
+    }; // Info
+    static std::vector<Info> get_available_devices( const std::string& Backend = std::string() );
     static Sequencer* get_instance( const std::string& URI = std::string() );
     Sequencer() : Start( 0 ), Time( 0 ), Clock( 0 ), Division( 120 ), Tempo( 500000 ), TempoTime( 0 ), TempoClock( 0 ), Track( 0 ) {}
     virtual ~Sequencer() {}
@@ -163,6 +173,8 @@ namespace MuTraMIDI {
   class InputDevice
   {
   public:
+    typedef Sequencer::Info Info;
+    static std::vector<Info> get_available_devices( const std::string& Backend = std::string() );
     static InputDevice* get_instance( const std::string& URI = std::string() );
     class Client
     {

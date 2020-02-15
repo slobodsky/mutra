@@ -18,7 +18,7 @@ namespace MuTraMIDI {
     cout << "Recorder add event @" << Time << " ";
     Ev.print( cout );
     cout<< endl;
-#endif MUTRA_DEBUG
+#endif // MUTRA_DEBUG
   } // event_received( const Event& )
   void InputConnector::event_received( const Event& Ev ) { if( mOutput ) Ev.play( *mOutput ); }
   
