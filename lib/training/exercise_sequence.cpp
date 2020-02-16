@@ -8,6 +8,7 @@ using std::vector;
 #include <algorithm>
 using std::find_if;
 using std::for_each;
+using MuTraMIDI::get_time_us;
 using MuTraMIDI::Event;
 using MuTraMIDI::TimeSignatureEvent;
 using MuTraMIDI::ChannelEvent;
@@ -128,7 +129,10 @@ namespace MuTraTrain {
   void ExerciseSequence::add_played_event( Event* NewEvent ) {
     Event::TimeuS EvClock = NewEvent->time() * division() / tempo();
     if( PlayedStart < 0 ) {
-      if( NewEvent->status() == ChannelEvent::NoteOn ) PlayedStart = EvClock;
+      if( NewEvent->status() == ChannelEvent::NoteOn ) {
+	PlayedStart = EvClock;
+	PlayedStartuS = get_time_us();
+      }
       else return; // throw away events before start
     }
 #ifdef MUTRA_DEBUG
@@ -151,7 +155,7 @@ namespace MuTraTrain {
 
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
-    unsigned Clocks = static_cast<unsigned>( ( Time * division() ) / tempo() );
+    unsigned Clocks = static_cast<unsigned>( ( (Time-PlayedStartuS) * division() ) / tempo() );
 #ifdef MUTRA_DEBUG
     cout << "Beat @" << Clocks << " (" << Time << "us)";
     if( PlayedStart >= 0 ) {

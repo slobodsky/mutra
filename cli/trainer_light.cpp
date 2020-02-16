@@ -49,7 +49,6 @@ int main() {
 	Lesson Les( LessonName );
 	cout << "Read MIDI events from " << DevName << " sequencer at " << SequencerName << " and lesson from " << LessonName << endl;
 	Metronome Metr( Seq );
-	uint64_t StartTime = 0;
 	do {
 	  string MIDIName = Les.file_name();
 	  cout << "Load exercise: " << MIDIName << flush;
@@ -81,10 +80,7 @@ int main() {
 	      Ex.start();
 	      Metr.start();
 	      //! \todo Make some callback when the exercise time is out.
-	      while( Ex.PlayedStart < 0 ) sleep( 1 );
-	      if( StartTime == 0 ) StartTime = get_time_us();
-	      cout << "Play's started @" << StartTime << "us " << Ex.PlayedStart << " pulses. Original length is " << Ex.OriginalLength << endl;
-	      while( !Ex.beat( get_time_us() - StartTime ) ) sleep( 1 );
+	      while( !Ex.beat() ) sleep( 1 );
 	      Metr.stop();
 	      ExerciseSequence::NotesStat Stat;
 	      if( Ex.compare( Stat ) == ExerciseSequence::NoError ) {

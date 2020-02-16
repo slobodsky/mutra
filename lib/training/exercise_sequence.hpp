@@ -72,10 +72,11 @@ namespace MuTraTrain {
     int OriginalStart;
     int OriginalLength;
     int PlayedStart;
+    MuTraMIDI::Event::TimeuS PlayedStartuS;
 
-    ExerciseSequence( unsigned Channels0, unsigned TargetTracks0 )
+    ExerciseSequence( unsigned Channels0 = 0xF, unsigned TargetTracks0 = 0xFFFF )
       : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), StartThreshold( 45 ), StopThreshold( 45 ), VelocityThreshold( 64 ),
-	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), Dump( "beat.dump" )
+	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), PlayedStartuS( 0 ), Dump( "beat.dump" )
     { Type = 1; }
     bool load( const std::string& FileName );
     unsigned channels() const { return Channels; }
@@ -103,7 +104,7 @@ namespace MuTraTrain {
       if( Rest == 0 || Rest > MuTraMIDI::MIDISequence::Division * 3 ) // Осталось меньше четверти
 	OriginalLength += MuTraMIDI::MIDISequence::Division; // Добавляем четверть
     }
-    bool beat( MuTraMIDI::Event::TimeuS Time );
+    bool beat( MuTraMIDI::Event::TimeuS Time = MuTraMIDI::get_time_us() );
     unsigned compare( NotesStat& Stat );
     void clear();
     void new_take();

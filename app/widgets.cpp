@@ -9,11 +9,13 @@
 #include "forms/ui_settings_dialog.h"
 #include "forms/ui_metronome_settings.h"
 #include "forms/ui_devices_settings.h"
+using MuTraMIDI::get_time_us;
 using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::NoteEvent;
 using MuTraTrain::MetronomeOptions;
+using MuTraTrain::ExerciseSequence;
 using std::vector;
 
 namespace MuTraWidgets {
@@ -185,7 +187,9 @@ namespace MuTraWidgets {
     int Measure;
   }; // NotesListBuilder
   
-  MainWindow::MainWindow( QWidget* Parent ) : QMainWindow( Parent ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr ) {
+  MainWindow::MainWindow( QWidget* Parent )
+    : QMainWindow( Parent ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr )
+  {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
     mUI->ActionOpen->setShortcut( QKeySequence::Open );
@@ -203,6 +207,8 @@ namespace MuTraWidgets {
     connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
     ExerciseBar->addAction( mUI->ActionRecord );
     connect( mUI->ActionRecord, SIGNAL( triggered( bool ) ), SLOT( toggle_record( bool ) ) );
+    ExerciseBar->addAction( mUI->ActionExercise );
+    connect( mUI->ActionExercise, SIGNAL( triggered( bool ) ), SLOT( toggle_exercise( bool ) ) );
     SystemOptions SysOp = Application::get()->system_options();
     if( mSequencer = Sequencer::get_instance( SysOp.midi_output() ) ) {
       qDebug() << "Sequencer created.";
@@ -212,6 +218,7 @@ namespace MuTraWidgets {
     } else statusBar()->showMessage( "Can't get sequencer" );
     mInput = InputDevice::get_instance( SysOp.midi_input() );
     if( !mInput ) QMessageBox::warning( this, tr( "Device problem" ), tr( "Can't open input device." ) );
+    connect( &mTimer, SIGNAL( timeout() ), SLOT( timer() ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
     if( mMetronome ) delete mMetronome;
@@ -223,6 +230,55 @@ namespace MuTraWidgets {
 
   const int ColorsNum = 7;
   QColor Colors[] = { QColor( 255, 255, 255, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
+
+  void MainWindow::update_buttons() { //!< \todo Implement this.
+    mUI->ActionRecord->setChecked( mRec );
+    mUI->ActionExercise->setEnabled( mExercise );
+  } // update_buttons()
+  void MainWindow::update_piano_roll() {
+    if( QGraphicsView* View = qobject_cast<QGraphicsView*>( centralWidget() ) ) {
+      QGraphicsScene* Sc = new QGraphicsScene( View );
+      if( mMIDI ) {
+	int Div = mMIDI->division();
+	NotesListBuilder NL( mMIDI->tracks().size() );
+	int TracksCount = mMIDI->tracks().size();
+	mMIDI->play( NL );
+	qreal K = Div / 32;
+	qreal H = TracksCount < 5 ? 16 : TracksCount * 4;
+	qreal BarH = H / TracksCount;
+	qDebug() << "We have" << NL.Notes.size() << "notes.";
+	for( int I = 0; I < TracksCount; ++I )
+	  qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
+	int Finish = 0;
+	int Low = 127;
+	int High = 0;
+	for( Note N: NL.Notes ) {
+	  if( N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] > Finish ) Finish = N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ];
+	  if( N.mValue < Low ) Low = N.mValue;
+	  if( N.mValue > High ) High = N.mValue;
+	}
+	if( High > Low ) {
+	  int Top = ( 60-High ) * H;
+	  int Bottom = ( 60-Low+1 ) * H;
+	  int Beat = 0;
+	  for( int X = 0; X < Finish; X += Div ) {
+	    QPen Pen;
+	    if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
+	    ++Beat;
+	    Sc->addLine( X / K, Top, X /K, Bottom, Pen );
+	  }
+	  for( int Y = Top; Y <= Bottom; Y += H )
+	    Sc->addLine( 0, Y, Finish / K, Y );
+	}
+	for( Note N: NL.Notes ) {
+	  qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
+	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
+		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
+	}
+      }
+      View->setScene( Sc );
+    }
+  } // update_piano_roll()
   
   void MainWindow::open_file() {
     QString SelFilter = "MIDI files (*.mid)";
@@ -230,49 +286,31 @@ namespace MuTraWidgets {
 						     &SelFilter );
     if( !FileName.isEmpty() ) {
       if( !close_file() ) return;
+      //! \todo Analyze the file's content instead of it's name.
       if( FileName.endsWith( ".mid" ) ) {
 	mMIDIFileName = FileName.toStdString();
 	mMIDI = new MIDISequence( mMIDIFileName );
-	if( QGraphicsView* View = qobject_cast<QGraphicsView*>( centralWidget() ) ) {
-	  QGraphicsScene* Sc = new QGraphicsScene( View );
-	  int Div = mMIDI->division();
-	  NotesListBuilder NL( mMIDI->tracks().size() );
-	  int TracksCount = mMIDI->tracks().size();
-	  mMIDI->play( NL );
-	  qreal K = Div / 32;
-	  qreal H = TracksCount < 5 ? 16 : TracksCount * 4;
-	  qreal BarH = H / TracksCount;
-	  qDebug() << "We have" << NL.Notes.size() << "notes.";
-	  for( int I = 0; I < TracksCount; ++I )
-	    qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
-	  int Finish = 0;
-	  int Low = 127;
-	  int High = 0;
-	  for( Note N: NL.Notes ) {
-	    if( N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] > Finish ) Finish = N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ];
-	    if( N.mValue < Low ) Low = N.mValue;
-	    if( N.mValue > High ) High = N.mValue;
-	  }
-	  if( High > Low ) {
-	    int Top = ( 60-High ) * H;
-	    int Bottom = ( 60-Low+1 ) * H;
-	    int Beat = 0;
-	    for( int X = 0; X < Finish; X += Div ) {
-	      QPen Pen;
-	      if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
-	      ++Beat;
-	      Sc->addLine( X / K, Top, X /K, Bottom, Pen );
-	    }
-	    for( int Y = Top; Y <= Bottom; Y += H )
-	      Sc->addLine( 0, Y, Finish / K, Y );
-	  }
-	  for( Note N: NL.Notes ) {
-	    qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
-	    Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
-			 QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
-	  }
-	  View->setScene( Sc );
+	setWindowTitle( "MIDI: " + QString::fromStdString( mMIDIFileName ) + " - " + qApp->applicationDisplayName() );
+	update_piano_roll();
+      }
+      else if( FileName.endsWith( ".mex" ) ) {
+	mExerciseName = FileName.toStdString();
+	mExercise = new ExerciseSequence();
+	if( !mExercise->load( mExerciseName ) ) {
+	  delete mExercise;
+	  mExercise = nullptr;
+	  mExerciseName.clear();
+	  return;
 	}
+	mMIDI = mExercise;
+	//! \todo Ensure metronome, sequencer & input are ready
+	if( mMetronome ) {
+	  mMetronome->division( mExercise->division() );
+	  mMetronome->meter( mExercise->Numerator, mExercise->Denominator );
+	  mMetronome->tempo( mExercise->tempo() );
+	}
+	update_buttons();
+	update_piano_roll();
       }
     }
   } // open_file()
@@ -295,13 +333,18 @@ namespace MuTraWidgets {
 
   bool MainWindow::close_file() {
     stop_recording();
+    mExercise = nullptr; // It's the same as mMIDI
+    mExerciseName.clear();
     if( mMIDI ) { //! \todo If the file is modified then ask to save it.
       delete mMIDI;
       mMIDI = nullptr;
     }
+    mMIDIFileName.clear();
+    update_buttons();
+    update_piano_roll();
     return true;
   } // close_file()
-
+  
   void MainWindow::edit_options() {
     SettingsDialog Dlg( this );
     Dlg.system( Application::get()->system_options() );
@@ -329,7 +372,8 @@ namespace MuTraWidgets {
       mInput->remove_client( *mRec );
     }
     mRec = nullptr;
-    mUI->ActionRecord->setChecked( false );
+    update_buttons();
+    update_piano_roll();
   } // stop_recording()
   void MainWindow::toggle_record( bool On ) {
     if( On ) {
@@ -348,6 +392,62 @@ namespace MuTraWidgets {
     }
     else stop_recording();
   } // toggle_record( bool )
+  void MainWindow::toggle_exercise( bool On ) {
+    if( mExercise && mInput ) {
+      if( On ) {
+	if( mToGo == 0 ) mToGo = mRetries;
+	start_exercise();
+      }
+      else complete_exercise();
+    }
+    update_buttons();
+  } // toggle_exercise( bool )
+  void MainWindow::timer() { //! \todo Sync with metronome, not just a timer.
+    if( !mExercise ) {
+      mTimer.stop();
+      return;
+    }
+    if( !mExercise->beat() ) return;
+    if( complete_exercise() ) {
+      if( --mToGo == 0 ) {
+	mSequencer->note_on( 9, 52, 100 );
+	//! \todo Go to the next exercise in the lesson if we have one
+      }
+    }
+    else mToGo = mRetries;
+    if( mExercise && mToGo > 0 ) start_exercise();
+  } // timer()
+
+  void MainWindow::start_exercise() {
+    if( !mExercise ) return;
+    mExercise->new_take();
+    mExercise->start();
+    mInput->add_client( *mExercise );
+    mInput->start();
+    if( mMetronome ) mMetronome->start();
+    mTimer.start( (mExercise->tempo() * mMetronome->options().beat()) / 1000 );
+  } // start_exercise()
+  bool MainWindow::complete_exercise() {
+    mTimer.stop();
+    mMetronome->stop();
+    mInput->stop();
+    mInput->remove_client( *mExercise );
+    ExerciseSequence::NotesStat Stats;
+    switch( mExercise->compare( Stats ) ) {
+    case ExerciseSequence::NoError: mSequencer->note_on( 9, 74, 100 ); break;
+    case ExerciseSequence::NoteError: mSequencer->note_on( 9, 78, 100 ); break;
+    case ExerciseSequence::RythmError:
+    case ExerciseSequence::VelocityError:
+      mSequencer->note_on( 9, 84, 100 ); break;
+    case ExerciseSequence::EmptyPlay:
+    default:
+      break;
+    }
+    qDebug() << "Statistics: start:" << Stats.StartMin << "-" << Stats.StartMax << "stop:" << Stats.StopMin << "-" << Stats.StopMax << "velocity:" << Stats.VelocityMin << "-" << Stats.VelocityMax;
+    mUI->ActionExercise->setChecked( false );
+    update_piano_roll();
+    return Stats.Result == ExerciseSequence::NoError;
+  } // complete_exercise()
   
   Application::Application( int& argc, char** argv ) : QApplication( argc, argv ) {
     setOrganizationName( "Nick Slobodsky" );

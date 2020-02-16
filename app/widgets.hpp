@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QDialog>
+#include <QTimer>
 #include <midi/midi_utility.hpp>
 #include <training/metronome.hpp>
 #include <training/exercise_sequence.hpp>
@@ -79,15 +80,27 @@ namespace MuTraWidgets {
     MainWindow( QWidget* Parent = nullptr );
     ~MainWindow();
     void stop_recording();
+    void update_buttons();
   public slots:
+    void update_piano_roll();
     void open_file();
     bool save_file();
     bool save_file_as();
     void edit_options();
     void toggle_metronome( bool On );
     void toggle_record( bool On );
+    void toggle_exercise( bool On );
     bool close_file();
+    void timer();
   private:
+    void start_exercise();
+    bool complete_exercise();
+    //! \todo Move the exercise mechanism to a separate object outside of the GUI app, sync with metronome & provide callbacks on exercise start & finish (with result).
+    std::string mExerciseName;
+    MuTraTrain::ExerciseSequence* mExercise;
+    int mRetries;
+    int mToGo;
+    QTimer mTimer;
     std::string mMIDIFileName;
     MuTraMIDI::MIDISequence* mMIDI;
     MuTraMIDI::Recorder* mRec;
