@@ -33,7 +33,7 @@ namespace MuTraMIDI {
   void RtMIDIInputDevice::start() {
     stop();
     In = new RtMidiIn();
-    Time = 0; //!< \todo Consider using just the real time.
+    Time = 0; //!< \todo Consider using just the real time (but notice that the first event will come with delta time set to zero anyway).
     In->openPort( Index );
     In->setCallback( &message_received, this );
     cout << "RtMIDI Input port " << Index << " ready." << endl;

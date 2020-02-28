@@ -77,39 +77,40 @@ namespace MuTraTrain {
 	    int Retries = 0;
 	    int Strike = 0;
 	    Les >> Retries >> Strike;
-	    Excercises.push_back( Excercise( Name, Retries, Strike ) );
+	    Exercises.push_back( Excercise( Name, Retries, Strike ) );
 	  }
 	  else
 	    Les.ignore( 1024 * 1024 * 1024, '\n' );
       }
-      Current = Excercises.begin();
-    }
+      Current = 0;
+    } //! \todo Throw an exception
+    else cerr << "Can't load lesson: " << FileName0 << endl;
   } // Конструктор урока
 
   bool Lesson::next()
   {
-    if( Current != Excercises.end() )
+    if( Current < Exercises.size() )
     {
-      Current->save();
+      Exercises[ Current ].save();
       Current++;
       string Skip;
-      while( Current != Excercises.end() && Current->retries() == 0 )
+      while( Current < Exercises.size() && Exercises[ Current ].retries() == 0 )
       {
-	Skip += Current->file_name() + '\n';
-	Current->save();
+	Skip += Exercises[ Current ].file_name() + '\n';
+	Exercises[ Current ].save();
 	save( FileName + ".tmp" );
 	Current++;
       }
       if( !Skip.empty() )
 	cout << "Упражнения\n" + Skip + "пропущены." << endl;
     }
-    return Current != Excercises.end();
+    return Current < Exercises.size();
   } // next()
 
   bool Lesson::save( const string& ToName )
   {
     ofstream File( ToName );
-    for( vector<Excercise>::const_iterator It = Excercises.begin(); It != Excercises.end(); It++ )
+    for( vector<Excercise>::const_iterator It = Exercises.begin(); It != Exercises.end(); It++ )
       File << It->file_name() << " " << It->retries() << " " << It->strike() << endl;
     return File.good();
   } // save( const string& )

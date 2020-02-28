@@ -16,7 +16,9 @@ using MuTraMIDI::MIDISequence;
 using MuTraMIDI::NoteEvent;
 using MuTraTrain::MetronomeOptions;
 using MuTraTrain::ExerciseSequence;
+using MuTraTrain::Lesson;
 using std::vector;
+using std::string;
 
 namespace MuTraWidgets {
   void load_from_settings( SystemOptions& Options ) {
@@ -160,7 +162,9 @@ namespace MuTraWidgets {
     void note_on( int Channel, int Value, int Velocity ) {
       if( Velocity == 0 ) note_off( Channel, Value, Velocity );
       else {
+#ifdef MUTRA_DEBUG
 	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
+#endif
 	if( Delays[ Track ] < 0 ) Delays[ Track ] = Clock;
 	Notes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
       }
@@ -174,7 +178,9 @@ namespace MuTraWidgets {
       qDebug() << "Note" << Value << "in channel" << Channel << "not found for stop @" << Clock;
     }
     void meter( int Numerator, int Denominator ) {
+#ifdef MUTRA_DEBUG
       qDebug() << "Metar: " << Numerator << "/" << Denominator << endl;
+#endif
       Beats = Numerator;
       Measure = Denominator;
     } // meter( int, int )
@@ -188,7 +194,8 @@ namespace MuTraWidgets {
   }; // NotesListBuilder
   
   MainWindow::MainWindow( QWidget* Parent )
-    : QMainWindow( Parent ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr )
+    : QMainWindow( Parent ), mLesson( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ),
+    mMetronome( nullptr )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
@@ -246,9 +253,11 @@ namespace MuTraWidgets {
 	qreal K = Div / 32;
 	qreal H = TracksCount < 5 ? 16 : TracksCount * 4;
 	qreal BarH = H / TracksCount;
+#ifdef MUTRA_DEBUG
 	qDebug() << "We have" << NL.Notes.size() << "notes.";
 	for( int I = 0; I < TracksCount; ++I )
 	  qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
+#endif
 	int Finish = 0;
 	int Low = 127;
 	int High = 0;
@@ -271,7 +280,9 @@ namespace MuTraWidgets {
 	    Sc->addLine( 0, Y, Finish / K, Y );
 	}
 	for( Note N: NL.Notes ) {
+#ifdef MUTRA_DEBUG
 	  qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
+#endif
 	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
 		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
 	}
@@ -285,35 +296,54 @@ namespace MuTraWidgets {
     QString FileName = QFileDialog::getOpenFileName( this, tr( "Open File" ), QString::fromStdString( mMIDIFileName ), tr( "Lessons (*.mles);;Exercises (*.mex);;MIDI files (*.mid);;All files (*.*)" ),
 						     &SelFilter );
     if( !FileName.isEmpty() ) {
-      if( !close_file() ) return;
       //! \todo Analyze the file's content instead of it's name.
       if( FileName.endsWith( ".mid" ) ) {
+	if( !close_file() ) return;
 	mMIDIFileName = FileName.toStdString();
 	mMIDI = new MIDISequence( mMIDIFileName );
 	setWindowTitle( "MIDI: " + QString::fromStdString( mMIDIFileName ) + " - " + qApp->applicationDisplayName() );
 	update_piano_roll();
       }
-      else if( FileName.endsWith( ".mex" ) ) {
-	mExerciseName = FileName.toStdString();
-	mExercise = new ExerciseSequence();
-	if( !mExercise->load( mExerciseName ) ) {
-	  delete mExercise;
-	  mExercise = nullptr;
-	  mExerciseName.clear();
-	  return;
-	}
-	mMIDI = mExercise;
-	//! \todo Ensure metronome, sequencer & input are ready
-	if( mMetronome ) {
-	  mMetronome->division( mExercise->division() );
-	  mMetronome->meter( mExercise->Numerator, mExercise->Denominator );
-	  mMetronome->tempo( mExercise->tempo() );
-	}
-	update_buttons();
-	update_piano_roll();
-      }
+      else if( FileName.endsWith( ".mex" ) ) load_exercise( FileName.toStdString() );
+      else if( FileName.endsWith( ".mles" ) ) load_lesson( FileName.toStdString() );
     }
   } // open_file()
+  bool MainWindow::load_lesson( const string& FileName ) {
+    mLesson = new Lesson( FileName );
+    if( mLesson->exercises().empty() ) return false;
+    if( load_exercise( mLesson->file_name() ) ) {
+      mStrike = mLesson->strike();
+      mRetries = mLesson->retries();
+      mToGo = mRetries;
+    }
+    return false;
+  } // load_lesson( const string& )
+  bool MainWindow::load_exercise( const string& FileName ) {
+    mExerciseName = FileName;
+    if( !mExercise ) mExercise = new ExerciseSequence();
+    else mExercise->clear();
+    qDebug() << "exercise name is: " << QString::fromStdString( mExerciseName );
+    if( !mExercise->load( mExerciseName ) ) {
+      delete mExercise;
+      mExercise = nullptr;
+      mMIDI = nullptr;
+      mExerciseName.clear();
+      return false;
+    }
+    qDebug() << "Exercise" << mExerciseName.c_str() << "loaded division" << mExercise->division()
+	     << "meter" << mExercise->Numerator << "/" << (1<<mExercise->Denominator) << "tempo" << (60000000/mExercise->tempo());
+    mMIDI = mExercise;
+    //! \todo Ensure metronome, sequencer & input are ready
+    if( mMetronome ) {
+      mMetronome->division( mExercise->division() );
+      mMetronome->meter( mExercise->Numerator, mExercise->Denominator );
+      mMetronome->tempo( mExercise->tempo() );
+      qDebug() << "Set metronome to" << mMetronome->options().beat() << "/" << (1<<mMetronome->options().measure()) << "tempo:" << (60000000/mMetronome->tempo()) << "bpm" << mMetronome->tempo() << "uspq";
+    }
+    update_buttons();
+    update_piano_roll();
+    return true;
+  } // load_exercise( const string& )
   bool MainWindow::save_file() {
     if( !mMIDI ) return true;
     if( mMIDIFileName.empty() ) return save_file_as();
@@ -333,8 +363,13 @@ namespace MuTraWidgets {
 
   bool MainWindow::close_file() {
     stop_recording();
-    mExercise = nullptr; // It's the same as mMIDI
+    complete_exercise();
+    if( mLesson ) { //! \todo If the file is modified then ask to save it.
+      delete mLesson;
+      mLesson = nullptr;
+    }
     mExerciseName.clear();
+    mExercise = nullptr; // It's the same as mMIDI
     if( mMIDI ) { //! \todo If the file is modified then ask to save it.
       delete mMIDI;
       mMIDI = nullptr;
@@ -384,6 +419,7 @@ namespace MuTraWidgets {
       }
       //! \todo Check if we have a metronome & create one if needed
       mRec = new MuTraMIDI::Recorder( mMetronome->options().tempo() );
+      mRec->meter( mMetronome->options().beat(), mMetronome->options().measure() );
       mMIDI = mRec;
       //! \todo Ensure we have an input device
       mInput->add_client( *mRec );
@@ -411,23 +447,32 @@ namespace MuTraWidgets {
     if( complete_exercise() ) {
       if( --mToGo == 0 ) {
 	mSequencer->note_on( 9, 52, 100 );
-	//! \todo Go to the next exercise in the lesson if we have one
+	if( mLesson && mLesson->next() && load_exercise( mLesson->file_name() ) ) {
+	  mStrike = mLesson->strike();
+	  mRetries = mLesson->retries();
+	  mToGo = mRetries;
+	}
       }
     }
     else mToGo = mRetries;
+    update_piano_roll();
     if( mExercise && mToGo > 0 ) start_exercise();
   } // timer()
 
   void MainWindow::start_exercise() {
     if( !mExercise ) return;
+    mInput->add_client( *mExercise );
     mExercise->new_take();
     mExercise->start();
-    mInput->add_client( *mExercise );
     mInput->start();
-    if( mMetronome ) mMetronome->start();
+    if( mMetronome ) {
+      qDebug() << "Start metronome" << mMetronome->options().beat() << "/" << (1<<mMetronome->options().measure()) << "tempo:" << (60000000/mMetronome->tempo()) << "bpm" << mMetronome->tempo() << "uspq";
+      mMetronome->start();
+    }
     mTimer.start( (mExercise->tempo() * mMetronome->options().beat()) / 1000 );
   } // start_exercise()
   bool MainWindow::complete_exercise() {
+    if( !mExercise ) return false;
     mTimer.stop();
     mMetronome->stop();
     mInput->stop();

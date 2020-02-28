@@ -13,8 +13,9 @@ namespace MuTraMIDI {
   class Recorder : public InputDevice::Client, public MIDISequence {
     Event::TimeuS mTempo;
   public:
-    Recorder( int BeatsPerMinute = 120 ) : mTempo( 60*1000000 / BeatsPerMinute ) {}
+    Recorder( int BeatsPerMinute = 120 );
     void event_received( const Event& Ev );
+    void meter( int Numerator, int Denominator );
   }; // Recorder
 
   class InputConnector : public InputDevice::Client {

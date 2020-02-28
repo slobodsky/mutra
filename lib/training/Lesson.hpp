@@ -22,16 +22,17 @@ namespace MuTraTrain {
     }; // Excercise
   private:
     std::string FileName;
-    std::vector<Excercise> Excercises;
-    std::vector<Excercise>::iterator Current;
+    std::vector<Excercise> Exercises;
+    size_t Current;
   public:
     Lesson( const std::string& FileName0 );
 
     const std::string& lesson_name() const { return FileName; }
-    const std::string& file_name() const { return Current->file_name(); }
-    int retries() const { return Current->retries(); }
-    int strike() const { return Current->strike(); }
-    void new_stat( ExerciseSequence::NotesStat& NewStat ) { Current->new_stat( NewStat ); }
+    std::string file_name() const { return Exercises[ Current ].file_name(); }
+    const std::vector<Excercise>& exercises() const { return Exercises; }
+    int retries() const { return Exercises[ Current ].retries(); }
+    int strike() const { return Exercises[ Current ].strike(); }
+    void new_stat( ExerciseSequence::NotesStat& NewStat ) { Exercises[ Current ].new_stat( NewStat ); }
 
     bool next();
     bool save( const std::string& ToFile );

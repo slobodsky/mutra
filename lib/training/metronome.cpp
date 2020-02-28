@@ -15,12 +15,13 @@ namespace MuTraTrain {
     mStartTime = get_time_us();
     mLastTime = mStartTime;
     mDelay = Delay;
+    mCount = 0;
     if( mThread.joinable() ) {
       cerr << "Try to assign to joinable thread." << endl;
       mThread.detach();
     }
     mThread = std::thread( [this]() {
-			     int64_t Target = this->mStartTime + this->mDelay;
+			     int64_t Target = this->mStartTime;
 			     while( this->mDelay > 0 ) {
 			       Target += this->mDelay;
 			       if( Target > this->mLastTime ) std::this_thread::sleep_for( std::chrono::microseconds( Target - this->mLastTime ) );
@@ -39,7 +40,11 @@ namespace MuTraTrain {
 
   MetronomeOptions::MetronomeOptions() : mTempo( 120 ), mBeat( 4 ), mMeasure( 2 ), mNote( 42 ), mVelocity( 64 ), mMediumNote( 38 ), mMediumVelocity( 80 ), mPowerNote( 35 ), mPowerVelocity( 100 ) {
   } // MetronomeOptions()
-  void Metronome::start() { mTimer.start( mTempouS ); }
+  void Metronome::start() {
+    //! \todo Send tempo & meter events 
+    timer( 0, 0, 0 );
+    mTimer.start( mTempouS );
+  }
   void Metronome::stop() { mTimer.stop(); }
   void Metronome::timer( int Count, int64_t Target, int64_t Now ) {
     if( mSequencer ) {

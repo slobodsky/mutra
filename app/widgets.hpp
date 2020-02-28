@@ -7,6 +7,7 @@
 #include <midi/midi_utility.hpp>
 #include <training/metronome.hpp>
 #include <training/exercise_sequence.hpp>
+#include <training/Lesson.hpp>
 
 namespace Ui {
   class MainWindow;
@@ -93,8 +94,12 @@ namespace MuTraWidgets {
     bool close_file();
     void timer();
   private:
+    bool load_lesson( const std::string& FileName );
+    bool load_exercise( const std::string& FileName );
     void start_exercise();
     bool complete_exercise();
+    MuTraTrain::Lesson* mLesson;
+    int mStrike;
     //! \todo Move the exercise mechanism to a separate object outside of the GUI app, sync with metronome & provide callbacks on exercise start & finish (with result).
     std::string mExerciseName;
     MuTraTrain::ExerciseSequence* mExercise;

@@ -34,6 +34,7 @@ namespace MuTraTrain {
 	cout << "Load play from " << Name << " tracks: " << TargetTracks << " channels: " << Channels << " [" << StartPoint << "-" << StopPoint << " limits: start: " << StartThreshold
 	     << " stop: " << StopThreshold << " velocity: " << VelocityThreshold << " tempo " << TempoSkew / 100.0 << "%" << endl;
 #endif
+	clear();
 	Play = new MIDISequence( Name );
 	start();
 	Play->play( *this );
@@ -155,6 +156,7 @@ namespace MuTraTrain {
 
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
+    if( PlayedStart < 0 ) return false;
     unsigned Clocks = static_cast<unsigned>( ( (Time-PlayedStartuS) * division() ) / tempo() );
 #ifdef MUTRA_DEBUG
     cout << "Beat @" << Clocks << " (" << Time << "us)";
@@ -163,8 +165,8 @@ namespace MuTraTrain {
     }
     cout << endl;
 #endif
-    Dump << "Clocks: " << Clocks << " (" << ( Clocks % MIDISequence::Division ) << ")\n";
-    return PlayedStart >= 0 && Clocks > PlayedStart+OriginalLength;
+    Dump << "Clocks: " << Clocks << " (" << ( Clocks % MIDISequence::Division ) << ")" << endl;
+    return Clocks > OriginalLength;
   } // beat( unsigned )
 
   namespace Helpers
@@ -297,6 +299,8 @@ namespace MuTraTrain {
       delete Tracks.back();
       Tracks.pop_back();
     }
+    if( Play ) delete Play;
+    Play = nullptr;
     Type = 0;
     Tempo = 0;
     TracksNum = 0;
@@ -309,5 +313,6 @@ namespace MuTraTrain {
   {
     add_track(); // Record
     PlayedStart = -1;
+    PlayedStartuS = 0;
   } // new_take()
 } // MuTraTrain

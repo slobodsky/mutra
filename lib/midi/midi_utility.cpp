@@ -1,3 +1,4 @@
+#include "midi_events.hpp"
 #include "midi_utility.hpp"
 using std::string;
 using std::cout;
@@ -11,6 +12,7 @@ namespace MuTraMIDI {
   } // note_name( int )
 
   void EventsPrinter::event_received( const Event& Ev ) { Ev.print( cout ); cout << endl; }
+  Recorder::Recorder( int BeatsPerMinute ) : mTempo( 60*1000000 / BeatsPerMinute ) { add_event( 0, new TempoEvent( mTempo ) ); }
   void Recorder::event_received( const Event& Ev ) {
     int Time = Ev.time() * division() / mTempo;
     add_event( Time, Ev.clone() );
@@ -20,6 +22,7 @@ namespace MuTraMIDI {
     cout<< endl;
 #endif // MUTRA_DEBUG
   } // event_received( const Event& )
+  void Recorder::meter( int Numerator, int Denominator ) { add_event( 0, new TimeSignatureEvent( Numerator, Denominator ) ); } // meter( int, int )
   void InputConnector::event_received( const Event& Ev ) { if( mOutput ) Ev.play( *mOutput ); }
   
   void MultiSequencer::add( Sequencer* Seq ) { Clients.push_back( Seq ); }

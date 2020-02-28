@@ -72,6 +72,7 @@ namespace MuTraTrain {
       mTempouS = NewQuarter;
       mOptions.tempo( 60*1000000 / NewQuarter );
     } // tempo( MuTraMIDI::Event::TimeuS )
+    MuTraMIDI::Event::TimeuS tempo() const { return mTempouS; }
     //! Set ticks count for a quarter note
     void division( int NewDivision ) { mDivision = NewDivision; }
     const MetronomeOptions& options() const { return mOptions; }
