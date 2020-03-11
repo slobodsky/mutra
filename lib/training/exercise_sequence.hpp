@@ -79,8 +79,11 @@ namespace MuTraTrain {
 	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), PlayedStartuS( 0 ), Dump( "beat.dump" )
     { Type = 1; }
     bool load( const std::string& FileName );
+    const MuTraMIDI::MIDISequence* play() const { return Play; }
     unsigned channels() const { return Channels; }
+    void channels( unsigned NewChannels ) { Channels = NewChannels; }
     unsigned tracks_filter() const { return TargetTracks; }
+    void tracks_filter( unsigned NewTracks ) { TargetTracks = NewTracks; }
     // Переопределения Sequencer'а
     double division() const { return MIDISequence::division(); }
     void division( unsigned MIDIClockForQuarter )
@@ -107,6 +110,7 @@ namespace MuTraTrain {
     bool beat( MuTraMIDI::Event::TimeuS Time = MuTraMIDI::get_time_us() );
     unsigned compare( NotesStat& Stat );
     void clear();
+    void rescan();
     void new_take();
     std::ofstream Dump;
   }; // ExerciseSequence

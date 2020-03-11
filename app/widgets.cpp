@@ -9,6 +9,7 @@
 #include "forms/ui_settings_dialog.h"
 #include "forms/ui_metronome_settings.h"
 #include "forms/ui_devices_settings.h"
+#include "forms/ui_exercise_settings.h"
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
@@ -59,24 +60,121 @@ namespace MuTraWidgets {
     Set.setValue( "Metronome/PowerVelocity", Options.power_velocity() );
   } // save_to_settings( const MetronomeOptions& )
 
-  ExerciseOptions::ExerciseOptions() : StartThreshold( 120 ), StopThreshold( 120 ), VelocityThreshold( 64 ), Duration( 0 ) {}
-  void ExerciseOptions::load_from_settings() {
+  ExerciseOptions::ExerciseOptions() : StartThreshold( 45 ), StopThreshold( 60 ), VelocityThreshold( 30 ), Start( 0 ), Duration( 0 ), TempoSkew( 1 ), TracksNum( 1 ), Tracks( 1 ), Channels( 0xFFFF ) {}
+  ExerciseOptions::ExerciseOptions( const ExerciseSequence& Ex )
+    : StartThreshold( Ex.StartThreshold ), StopThreshold( Ex.StopThreshold ), VelocityThreshold( Ex.VelocityThreshold ), Start( Ex.StartPoint ),
+      Duration( Ex.StopPoint < 0 ? -1 : Ex.StopPoint - Ex.StartPoint ), TempoSkew( Ex.TempoSkew ), TracksNum( Ex.play() ? Ex.play()->tracks_num() : 0 ), Tracks( Ex.tracks_filter() ),
+      Channels( Ex.channels() ) {}
+  ExerciseOptions& ExerciseOptions::track( int Index, bool NewValue ) {
+    if( Index >= 0 && Index < tracks_count() ) {
+      if( NewValue ) Tracks |= ( 1 << Index );
+      else Tracks &= ~( 1 << Index );
+    }
+    return *this;
+  } // track( int, bool )
+  ExerciseOptions& ExerciseOptions::channel( int Index, bool NewValue ) {
+    if( Index >= 0 && Index < ChannelsCount ) {
+      if( NewValue ) Channels |= ( 1 << Index );
+      else Channels &= ~( 1 << Index );
+    }
+    return *this;
+  } // channel( int, bool )
+  bool ExerciseOptions::set_to( MuTraTrain::ExerciseSequence& Exercise ) const {
+    Exercise.StartThreshold = note_on_low();
+    Exercise.StopThreshold = note_off_low();
+    Exercise.VelocityThreshold = velocity_low();
+    Exercise.TempoSkew = tempo_skew();
+    int Finish = fragment_duration() < 0 ? -1 : fragment_start() + fragment_duration();
+    if( Exercise.StartPoint != fragment_start() || Exercise.StopPoint != Finish || Exercise.tracks_filter() != tracks() || Exercise.channels() != channels() ) {
+      Exercise.StartPoint = fragment_start();
+      Exercise.StopPoint = Finish;
+      Exercise.channels( channels() );
+      Exercise.tracks_filter( tracks() );
+      Exercise.rescan();
+      return true;
+    }
+    return false;
+  } // set_to( MuTraTrain::ExerciseSequence& ) const
+  void load_from_settings( ExerciseOptions& Options ) {
     QSettings Set;
     // Load exercise settings
-    StartThreshold = Set.value( "Exercise/StartThreshold", StartThreshold ).toInt();
-    StopThreshold = Set.value( "Exercise/StopThreshold", StopThreshold ).toInt();
-    VelocityThreshold = Set.value( "Exercise/VelocityThreshold", VelocityThreshold ).toInt();
-    Duration = Set.value( "Exercise/Duration", 0 ).toInt();
+    Options.note_on_low( Set.value( "Exercise/StartThreshold", Options.note_on_low() ).toInt() );
+    Options.note_off_low( Set.value( "Exercise/StopThreshold", Options.note_off_low() ).toInt() );
+    Options.velocity_low( Set.value( "Exercise/VelocityThreshold", Options.velocity_low() ).toInt() );
+    Options.fragment_duration( Set.value( "Exercise/Duration", -1 ).toInt() );
   } // load_from_settings()
-  void ExerciseOptions::save_to_settings() {
+  void save_to_settings( const ExerciseOptions& Options ) {
     QSettings Set;
     // Save exercise settings
-    Set.setValue( "Exercise/StartThreshold", StartThreshold );
-    Set.setValue( "Exercise/StopThreshold", StopThreshold );
-    Set.setValue( "Exercise/VelocityThreshold", VelocityThreshold );
-    Set.setValue( "Exercise/Duration", Duration );
+    Set.setValue( "Exercise/StartThreshold", Options.note_on_low() );
+    Set.setValue( "Exercise/StopThreshold", Options.note_off_low() );
+    Set.setValue( "Exercise/VelocityThreshold", Options.velocity_low() );
+    Set.setValue( "Exercise/Duration", Options.fragment_duration() );
   } // save_to_settings()
 
+  TracksChannelsModel& TracksChannelsModel::tracks_count( int NewCount ) {
+    mTracksCount = NewCount < 0 ? 0 : NewCount > 16 ? 16 : NewCount;
+    return *this;
+  } // tracks_count( int )
+  TracksChannelsModel& TracksChannelsModel::track( int Index, bool Value ) {
+    if( Index >= 0 && Index < mTracksCount ) {
+      if( Value ) mTracks |= 1 << Index;
+      else mTracks &= ~( 1 << Index );
+    }
+    return *this;
+  } // track( int, bool )
+  TracksChannelsModel& TracksChannelsModel::tracks( uint16_t NewTracks ) {
+    mTracks = NewTracks;
+    return *this;
+  } // tracks( uint16_t )
+  TracksChannelsModel& TracksChannelsModel::channel( int Index, bool Value ) {
+    if( Index >= 0 && Index < 16 ) {
+      if( Value ) mChannels |= 1 << Index;
+      else mChannels &= ~( 1 << Index );
+    }
+    return *this;
+  } // channel( int, bool )
+  TracksChannelsModel& TracksChannelsModel::channels( uint16_t NewChannels ) {
+    mChannels = NewChannels;
+    return *this;
+  } // channels( uint16_t )
+  int TracksChannelsModel::rowCount( const QModelIndex& Parent ) const { return Parent.isValid() ? 0 : mTracksCount + 18; }
+  Qt::ItemFlags TracksChannelsModel::flags( const QModelIndex& Index ) const {
+    if( Index.isValid() && Index.row() != 0 && Index.row() != mTracksCount + 1 ) return QAbstractListModel::flags( Index ) | Qt::ItemIsUserCheckable;
+    return QAbstractListModel::flags( Index );
+  } // flags( const QModelIndex& ) const
+  QVariant TracksChannelsModel::data( const QModelIndex& Index, int Role ) const {
+    switch( Role ) {
+    case Qt::DisplayRole:
+      if( Index.row() == 0 ) return tr( "Tracks" );
+      if( Index.row() <= mTracksCount ) return tr( "Track " ) + QString::number( Index.row() );
+      if( Index.row() == mTracksCount + 1 ) return tr( "Channels" );
+      {
+	int Channel = Index.row() - mTracksCount - 1;
+	if( Channel > 0 && Channel <= 16 ) return tr( "Channel " ) + QString::number( Channel );
+      }
+      break;
+    case Qt::BackgroundRole:
+      if( Index.row() == 0 || Index.row() == mTracksCount + 1 ) return QBrush( QColor( 64, 64, 64 ) );
+      break;
+    case Qt::CheckStateRole:
+      if( Index.row() > 0 && Index.row() <= mTracksCount ) return track( Index.row() - 1 ) ? Qt::Checked : Qt::Unchecked;
+      if( Index.row() > mTracksCount + 1 && Index.row() <= mTracksCount + 17 ) return channel( Index.row() - mTracksCount - 2 ) ? Qt::Checked : Qt::Unchecked;
+      break;
+    }
+    return QVariant();
+  } // data( const QModelIndex&, int )
+  bool TracksChannelsModel::setData( const QModelIndex& Index, const QVariant& Value, int Role ) {
+    if( Index.isValid() && Role == Qt::CheckStateRole ) {
+      if( Index.row() <= 0 || Index.row() == mTracksCount + 1 || Index.row() > mTracksCount + 1 + 16 ) return false;
+      if( Index.row() <= mTracksCount ) track( Index.row()-1, Value == Qt::Checked );
+      else channel( Index.row()-mTracksCount-2, Value == Qt::Checked );
+      return true;
+    }
+    qDebug() << "Set data for item's" << Index << "role" << Role << "to" << Value;
+    return setData( Index, Value, Role );
+  } // setData( const QModelIndex&, const QVariant&, int )
+  
   SettingsDialog::SettingsDialog( QWidget* Parent ) : QDialog( Parent ) {
     mDlg = new Ui::SettingsDialog;
     mDlg->setupUi( this );
@@ -96,6 +194,11 @@ namespace MuTraWidgets {
       mMetronomePage->MediumNote->addItem( NoteEvent::Percussion[ I-NoteEvent::PercussionFirst ], I );
     }
     mDlg->SettingsTabs->addTab( Page, tr( "Metronome" ) );
+    Page = new QWidget( this );
+    mExercisePage = new Ui::ExerciseSettings;
+    mExercisePage->setupUi( Page );
+    mExercisePage->Tracks->setModel( new TracksChannelsModel( mExercisePage->Tracks ) );
+    mDlg->SettingsTabs->addTab( Page, tr( "Exercise" ) );
   } // SettingsDialog( QWidget* )
   SettingsDialog::~SettingsDialog() {
     if( mMetronomePage ) delete mMetronomePage;
@@ -105,6 +208,7 @@ namespace MuTraWidgets {
     mDevicesPage->MIDIInput->setCurrentIndex( mDevicesPage->MIDIInput->findData( QString::fromStdString( NewOptions.midi_input() ) ) );
     mDevicesPage->MIDIOutput->setCurrentIndex( mDevicesPage->MIDIOutput->findData( QString::fromStdString( NewOptions.midi_output() ) ) );
     mDevicesPage->MIDIEcho->setChecked( mSystem.midi_echo() );
+    mSystem = NewOptions;
   } // system( const SystemOptions& )
   void SettingsDialog::metronome( const MetronomeOptions& NewOptions ) {
     mMetronomePage->Beats->setValue( NewOptions.beat() );
@@ -118,6 +222,20 @@ namespace MuTraWidgets {
     mMetronomePage->PowerVelocity->setValue( NewOptions.power_velocity() );
     mMetronome = NewOptions;
   } // metronome( const MetronomeOptions& )
+  void SettingsDialog::exercise( const ExerciseOptions& NewOptions ) {
+    mExercisePage->FragmentStart->setValue( NewOptions.fragment_start() );
+    mExercisePage->FragmentFinish->setValue( NewOptions.fragment_duration() < 0 ? -1 : NewOptions.fragment_start() + NewOptions.fragment_duration() );
+    mExercisePage->TempoPercent->setValue( NewOptions.tempo_skew() * 100 );
+    mExercisePage->NoteOnLow->setValue( NewOptions.note_on_low() );
+    mExercisePage->NoteOffLow->setValue( NewOptions.note_off_low() );
+    mExercisePage->VelocityLow->setValue( NewOptions.velocity_low() );
+    if( TracksChannelsModel* Mod = qobject_cast<TracksChannelsModel*>( mExercisePage->Tracks->model() ) ) {
+      Mod->tracks_count( NewOptions.tracks_count() );
+      Mod->tracks( NewOptions.tracks() );
+      Mod->channels( NewOptions.channels() );
+    }
+    mExercise = NewOptions;
+  } // exercise_settings( const ExerciseOptions& )
   void SettingsDialog::accept() {
     mMetronome.beat( mMetronomePage->Beats->value() ).measure( mMetronomePage->Measure->currentIndex() ) //!< \todo Better set data in the setup
       .tempo( mMetronomePage->Tempo->value() ).note( mMetronomePage->WeakNote->currentData().toInt() ).velocity( mMetronomePage->WeakVelocity->value() )
@@ -125,6 +243,12 @@ namespace MuTraWidgets {
       .power_note( mMetronomePage->PowerNote->currentData().toInt() ).power_velocity( mMetronomePage->PowerVelocity->value() );
     mSystem.midi_input( mDevicesPage->MIDIInput->currentData().toString().toStdString() ).midi_output( mDevicesPage->MIDIOutput->currentData().toString().toStdString() )
       .midi_echo( mDevicesPage->MIDIEcho->isChecked() );
+    int Start = mExercisePage->FragmentStart->value();
+    int Finish = mExercisePage->FragmentFinish->value();
+    mExercise.fragment_start( Start ).fragment_duration( Finish < 0 ? -1 : Finish >= Start ? Finish - Start : 0 ).tempo_skew( mExercisePage->TempoPercent->value() / 100.0 )
+      .note_on_low( mExercisePage->NoteOnLow->value() ).note_off_low( mExercisePage->NoteOffLow->value() ).velocity_low( mExercisePage->VelocityLow->value() );
+    if( TracksChannelsModel* Mod = qobject_cast<TracksChannelsModel*>( mExercisePage->Tracks->model() ) )
+      mExercise.tracks_count( Mod->tracks_count() ).tracks( Mod->tracks() ).channels( Mod->channels() );
 #ifdef MUTRA_DEBUG
     qDebug() << "Settings accepted:\nMetronome\n\tMeter:" << mMetronomePage->Beats->value() << "/" << mMetronomePage->Measure->currentText() << "\tTempo" << mMetronomePage->Tempo->value()
 	     << "Power beat" << mMetronomePage->PowerNote->currentText() << "(" << mMetronomePage->PowerNote->currentData() << ") @" << mMetronomePage->PowerVelocity->value()
@@ -283,8 +407,10 @@ namespace MuTraWidgets {
 #ifdef MUTRA_DEBUG
 	  qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
 #endif
+	  QColor Clr = Colors[ N.mTrack % ColorsNum ];
+	  Clr.setAlphaF( N.mVelocity / 127.0 );
 	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
-		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Colors[ N.mTrack % ColorsNum ] ) );
+		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
 	}
       }
       View->setScene( Sc );
@@ -385,11 +511,14 @@ namespace MuTraWidgets {
     Dlg.system( Application::get()->system_options() );
     if( mMetronome ) Dlg.metronome( mMetronome->options() );
     else Dlg.metronome( Application::get()->metronome_options() );
+    if( mExercise ) Dlg.exercise( *mExercise );
     if( Dlg.exec() ) {
       if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
 	mMetronome->options( Dlg.metronome() );
       //! \todo Change current midi file metronome settings.
       if( !mMIDI ) Application::get()->metronome_options( Dlg.metronome() );
+      if( mExercise && Dlg.exercise().set_to( *mExercise ) )
+	update_piano_roll();
       Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
     }
   } // edit_options()
@@ -481,9 +610,8 @@ namespace MuTraWidgets {
     switch( mExercise->compare( Stats ) ) {
     case ExerciseSequence::NoError: mSequencer->note_on( 9, 74, 100 ); break;
     case ExerciseSequence::NoteError: mSequencer->note_on( 9, 78, 100 ); break;
-    case ExerciseSequence::RythmError:
-    case ExerciseSequence::VelocityError:
-      mSequencer->note_on( 9, 84, 100 ); break;
+    case ExerciseSequence::RythmError: mSequencer->note_on( 9, 84, 100 ); break;
+    case ExerciseSequence::VelocityError: mSequencer->note_on( 9, 81, 100 ); break;
     case ExerciseSequence::EmptyPlay:
     default:
       break;
@@ -502,11 +630,11 @@ namespace MuTraWidgets {
     // was: Load standard settings (do I need it?)
     load_from_settings( mSystemOptions );
     load_from_settings( mMetronomeOptions );
-    mExercise.load_from_settings();
+    load_from_settings( mExerciseOptions );
     // was: Create main (MDI) window.
   } // Application()
   Application::~Application() {
-    mExercise.save_to_settings();
+    save_to_settings( mExerciseOptions );
     save_to_settings( mMetronomeOptions );
     save_to_settings( mSystemOptions );
   } // ~Application()

@@ -309,6 +309,18 @@ namespace MuTraTrain {
     reset();
   } // clear()
 
+  void ExerciseSequence::rescan() {
+    while( !Tracks.empty() )
+    {
+      delete Tracks.back();
+      Tracks.pop_back();
+    }
+    add_track();
+    OriginalStart = -1;
+    reset();
+    start();
+    Play->play( *this );
+  } // rescan()
   void ExerciseSequence::new_take()
   {
     add_track(); // Record
