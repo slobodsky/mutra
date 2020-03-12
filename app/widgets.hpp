@@ -122,14 +122,18 @@ namespace MuTraWidgets {
     void metronome( const MuTraTrain::MetronomeOptions& NewOptions );
     const SystemOptions& system() const { return mSystem; }
     void system( const SystemOptions& NewOptions );
-    void exercise( const ExerciseOptions& Ex );
     const ExerciseOptions& exercise() const { return mExercise; }
+    void exercise( const ExerciseOptions& Ex );
+    int opriginal_tempo() const { return mOriginalTempo; }
+    void original_tempo( int NewTempo );
   public slots:
+    void tempo_skew_changed( int Value );
     void accept();
   private:
     SystemOptions mSystem;
     MuTraTrain::MetronomeOptions mMetronome;
     ExerciseOptions mExercise;
+    int mOriginalTempo;
     Ui::SettingsDialog* mDlg;
     Ui::DevicesSettings* mDevicesPage;
     Ui::MetronomeSettings* mMetronomePage;

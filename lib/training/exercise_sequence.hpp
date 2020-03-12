@@ -97,6 +97,7 @@ namespace MuTraTrain {
     void note_off( int Channel, int Note, int Velocity );
     unsigned tempo() const { return static_cast<unsigned>( Tempo / TempoSkew ); }
     void tempo( unsigned uSecForQuarter );
+    unsigned original_tempo() const { return Tempo; }
     void add_original_event( MuTraMIDI::Event* NewEvent );
     void add_played_event( MuTraMIDI::Event* NewEvent );
     // InputDevice::Client overload

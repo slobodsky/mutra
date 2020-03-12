@@ -175,7 +175,7 @@ namespace MuTraWidgets {
     return setData( Index, Value, Role );
   } // setData( const QModelIndex&, const QVariant&, int )
   
-  SettingsDialog::SettingsDialog( QWidget* Parent ) : QDialog( Parent ) {
+  SettingsDialog::SettingsDialog( QWidget* Parent ) : QDialog( Parent ), mOriginalTempo( 120 ), mMetronomePage( nullptr ), mDevicesPage( nullptr ), mExercisePage( nullptr ) {
     mDlg = new Ui::SettingsDialog;
     mDlg->setupUi( this );
     //! \todo Move the dialogs to separate objects.
@@ -199,6 +199,7 @@ namespace MuTraWidgets {
     mExercisePage->setupUi( Page );
     mExercisePage->Tracks->setModel( new TracksChannelsModel( mExercisePage->Tracks ) );
     mDlg->SettingsTabs->addTab( Page, tr( "Exercise" ) );
+    connect( mExercisePage->TempoPercent, SIGNAL( valueChanged( int ) ), SLOT( tempo_skew_changed( int ) ) );
   } // SettingsDialog( QWidget* )
   SettingsDialog::~SettingsDialog() {
     if( mMetronomePage ) delete mMetronomePage;
@@ -234,8 +235,16 @@ namespace MuTraWidgets {
       Mod->tracks( NewOptions.tracks() );
       Mod->channels( NewOptions.channels() );
     }
+    if( mMetronomePage ) mMetronomePage->Tempo->setValue( mOriginalTempo * NewOptions.tempo_skew() );
     mExercise = NewOptions;
   } // exercise_settings( const ExerciseOptions& )
+  void SettingsDialog::original_tempo( int NewTempo ) {
+    mOriginalTempo = NewTempo;
+    if( mMetronomePage ) mMetronomePage->Tempo->setValue( mOriginalTempo * ( mExercisePage ? mExercisePage->TempoPercent->value() / 100.0 : mExercise.tempo_skew() ) );
+  } // original_tempo( int )
+  void SettingsDialog::tempo_skew_changed( int Value ) {
+    mMetronomePage->Tempo->setValue( mOriginalTempo * ( Value / 100.0 ) );
+  } // tempo_skew_changed( int )
   void SettingsDialog::accept() {
     mMetronome.beat( mMetronomePage->Beats->value() ).measure( mMetronomePage->Measure->currentIndex() ) //!< \todo Better set data in the setup
       .tempo( mMetronomePage->Tempo->value() ).note( mMetronomePage->WeakNote->currentData().toInt() ).velocity( mMetronomePage->WeakVelocity->value() )
@@ -309,7 +318,7 @@ namespace MuTraWidgets {
       Measure = Denominator;
     } // meter( int, int )
     void start() { Time = 0; Clock = 0; }
-    void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock  * tempo(); }
+    void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock * tempo(); }
     vector<Note> Notes;
     int* Delays;
 
@@ -371,12 +380,13 @@ namespace MuTraWidgets {
       QGraphicsScene* Sc = new QGraphicsScene( View );
       if( mMIDI ) {
 	int Div = mMIDI->division();
-	NotesListBuilder NL( mMIDI->tracks().size() );
 	int TracksCount = mMIDI->tracks().size();
+	int DrawTracks = TracksCount < 4 ? TracksCount : 4;
+	NotesListBuilder NL( TracksCount );
 	mMIDI->play( NL );
 	qreal K = Div / 32;
-	qreal H = TracksCount < 5 ? 16 : TracksCount * 4;
-	qreal BarH = H / TracksCount;
+	qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
+	qreal BarH = H / DrawTracks;
 #ifdef MUTRA_DEBUG
 	qDebug() << "We have" << NL.Notes.size() << "notes.";
 	for( int I = 0; I < TracksCount; ++I )
@@ -407,9 +417,13 @@ namespace MuTraWidgets {
 #ifdef MUTRA_DEBUG
 	  qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
 #endif
-	  QColor Clr = Colors[ N.mTrack % ColorsNum ];
+	  int TrackPlace = N.mTrack - (TracksCount-DrawTracks);
+	  if( N.mTrack == 0 ) TrackPlace = 0;
+	  else
+	    if( TrackPlace <= 0 ) continue;
+	  QColor Clr = Colors[ TrackPlace % ColorsNum ];
 	  Clr.setAlphaF( N.mVelocity / 127.0 );
-	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (N.mTrack * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
+	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (TrackPlace * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
 		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
 	}
       }
@@ -511,14 +525,16 @@ namespace MuTraWidgets {
     Dlg.system( Application::get()->system_options() );
     if( mMetronome ) Dlg.metronome( mMetronome->options() );
     else Dlg.metronome( Application::get()->metronome_options() );
-    if( mExercise ) Dlg.exercise( *mExercise );
+    if( mExercise ) {
+      Dlg.exercise( *mExercise );
+      Dlg.original_tempo( 60000000 / mExercise->original_tempo() );
+    }
     if( Dlg.exec() ) {
       if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
 	mMetronome->options( Dlg.metronome() );
       //! \todo Change current midi file metronome settings.
       if( !mMIDI ) Application::get()->metronome_options( Dlg.metronome() );
-      if( mExercise && Dlg.exercise().set_to( *mExercise ) )
-	update_piano_roll();
+      if( mExercise && Dlg.exercise().set_to( *mExercise ) ) update_piano_roll();
       Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
     }
   } // edit_options()
