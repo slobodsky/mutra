@@ -331,6 +331,7 @@ namespace MuTraWidgets {
     StatisticsModel( QObject* Parent = nullptr ) : QAbstractItemModel( Parent ), mLesson( nullptr ) {} // StatisticsModel( QObject* )
     Lesson* lesson() const { return mLesson; }
     void lesson( Lesson* NewLesson );
+    void add_stat( const ExerciseSequence::NotesStat& NewStat );
     // Model overrides
     QModelIndex index( int Row, int Column, const QModelIndex& Parent ) const;
     QModelIndex parent( const QModelIndex& Index ) const;
@@ -345,12 +346,19 @@ namespace MuTraWidgets {
     static unsigned stats( quintptr ID ) { return ( ID >> 16 ) & 0xFFFF; }
     static quintptr pack( unsigned Type, unsigned Exercise = 0, unsigned Stats = 0 ) { return ( Type & 0xF ) | ( ( Exercise & 0xFFF ) << 4 ) | ( ( Stats & 0xFFFF ) << 16 ); }
     Lesson* mLesson;
+    vector<ExerciseSequence::NotesStat> mStats;
   }; // StatisticsModel
   void StatisticsModel::lesson( Lesson* NewLesson ) {
     beginResetModel();
     mLesson = NewLesson;
+    mStats.clear();
     endResetModel();
   } // lesson( Lesson* )
+  void StatisticsModel::add_stat( const ExerciseSequence::NotesStat& NewStat ) {
+    beginInsertRows( QModelIndex(), mStats.size(), mStats.size() );
+    mStats.push_back( NewStat );
+    endInsertRows();
+  } // add_stat( const ExerciseSequence::NotesStat& )
   QModelIndex StatisticsModel::index( int Row, int Column, const QModelIndex& Parent ) const {
     if( Parent.isValid() ) {
       switch( type( Parent.internalId() ) ) {
@@ -358,8 +366,8 @@ namespace MuTraWidgets {
       case ExerciseType: return createIndex( Row, Column, pack( StatsType, Parent.row(), Row ) );
       }
     }
-    else
-      if( Row == 0 ) return createIndex( Row, Column, pack( LessonType, Row ) );
+    else if( mLesson ) { if( Row == 0 ) return createIndex( Row, Column, pack( LessonType, Row ) ); }
+    else if( Row < mStats.size() ) return createIndex( Row, Column, pack( StatsType, 0, Row ) );
     return QModelIndex();
   } // index( int, int, const QModelIndex& ) const
   QModelIndex StatisticsModel::parent( const QModelIndex& Index ) const {
@@ -367,10 +375,11 @@ namespace MuTraWidgets {
       switch( type( Index.internalId() ) ) {
       case LessonType: return QModelIndex();
       case ExerciseType: return createIndex( 0, 0, pack( LessonType ) );
-      case StatsType: {
-	int Row = exercise( Index.internalId() );
-	return createIndex( Row, 0, pack( ExerciseType, Row ) );
-      }
+      case StatsType: if( mLesson ) {
+	  int Row = exercise( Index.internalId() );
+	  return createIndex( Row, 0, pack( ExerciseType, Row ) );
+	}
+	break;
       }
     }
     return QModelIndex();
@@ -378,7 +387,7 @@ namespace MuTraWidgets {
   int StatisticsModel::rowCount( const QModelIndex& Index ) const {
     //! \todo Make stats for exercises without lesson.
     //qDebug() << "Get rows for index" << Index;
-    if( !mLesson ) return 0;
+    if( !mLesson ) return mStats.size();
     if( !Index.isValid() ) { /*qDebug() << "We have lesson";*/ return 1; }
     if( Index.column() != 0 ) return 0;
     switch( type( Index.internalId() ) ) {
@@ -388,7 +397,6 @@ namespace MuTraWidgets {
     return 0;
   } // rowCount( const QModelIndex& ) const
   int StatisticsModel::columnCount( const QModelIndex& Index ) const {
-#if 1
     if( Index.isValid() )
       switch( type( Index.internalId() ) ) {
       case LessonType:
@@ -397,7 +405,6 @@ namespace MuTraWidgets {
       case StatsType:
 	return 7;
       }
-#endif
     return 7;
   } // columnCount( const QModelIndex& ) const
   QVariant StatisticsModel::headerData( int Section, Qt::Orientation Orient, int Role ) const {
@@ -415,7 +422,7 @@ namespace MuTraWidgets {
   } // headerData( int, int ) const
   QVariant StatisticsModel::data( const QModelIndex& Index, int Role ) const {
     //!  \todo implement this
-    if( !Index.isValid() || !mLesson ) return QVariant();
+    if( !Index.isValid() ) return QVariant();
     if( Role == Qt::DisplayRole )
       switch( type( Index.internalId() ) ) {
       case LessonType:
@@ -430,7 +437,7 @@ namespace MuTraWidgets {
       case StatsType:
 	if( Index.column() == 0 ) return QVariant( Index.row()+1 );
 	else {
-	  ExerciseSequence::NotesStat Stats = mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) );
+	  ExerciseSequence::NotesStat Stats = mLesson ? mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ) : mStats[ stats( Index.internalId() ) ];
 	  if( Stats.Result < ExerciseSequence::NoteError )
 	    switch( Index.column() ) {
 	    case 1: return QVariant( Stats.StartMin );
@@ -451,7 +458,7 @@ namespace MuTraWidgets {
     }
     else if( Role == Qt::DecorationRole ) {
       if( Index.column() == 0 && type( Index.internalId() ) == StatsType )
-	switch( mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ).Result ) {
+	switch( mLesson ? mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ).Result : mStats[ stats( Index.internalId() ) ].Result ) {
 	case ExerciseSequence::NoError: return QIcon::fromTheme( "gtk-yes" );
 	case ExerciseSequence::NoteError: return QIcon::fromTheme( "gtk-no" );
 	case ExerciseSequence::RythmError: return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
@@ -646,8 +653,8 @@ namespace MuTraWidgets {
   bool MainWindow::close_file() {
     stop_recording();
     complete_exercise();
+    if( mStats ) mStats->lesson( nullptr );
     if( mLesson ) { //! \todo If the file is modified then ask to save it.
-      if( mStats ) mStats->lesson( nullptr );
       delete mLesson;
       mLesson = nullptr;
     }
@@ -776,6 +783,7 @@ namespace MuTraWidgets {
       break;
     }
     if( mLesson ) mLesson->new_stat( Stats );
+    else if( mStats ) mStats->add_stat( Stats );
     qDebug() << "Statistics: start:" << Stats.StartMin << "-" << Stats.StartMax << "stop:" << Stats.StopMin << "-" << Stats.StopMax << "velocity:" << Stats.VelocityMin << "-" << Stats.VelocityMax;
     mUI->ActionExercise->setChecked( false );
     update_piano_roll();
