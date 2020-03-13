@@ -8,7 +8,7 @@ using std::cerr;
 using std::endl;
 using std::vector;
 namespace MuTraTrain {
-  void Lesson::Excercise::new_stat( ExerciseSequence::NotesStat& NewStat )
+  void Lesson::Exercise::new_stat( const ExerciseSequence::NotesStat& NewStat )
   {
     // Добавляем новую статистику к результатам и, если была ошибка, сбрасываем параметры
     Stats.push_back( NewStat );
@@ -19,7 +19,7 @@ namespace MuTraTrain {
     }
   } // new_stat( ExerciseSequence::NotesStat& )
 
-  void Lesson::Excercise::save()
+  void Lesson::Exercise::save()
   {
     string Name = FileName.substr( 0, FileName.length()-3 )+"stat";
     ofstream File( Name.c_str(), ios::app | ios::out | ios::binary );
@@ -77,7 +77,7 @@ namespace MuTraTrain {
 	    int Retries = 0;
 	    int Strike = 0;
 	    Les >> Retries >> Strike;
-	    Exercises.push_back( Excercise( Name, Retries, Strike ) );
+	    Exercises.push_back( Exercise( Name, Retries, Strike ) );
 	  }
 	  else
 	    Les.ignore( 1024 * 1024 * 1024, '\n' );
@@ -110,7 +110,7 @@ namespace MuTraTrain {
   bool Lesson::save( const string& ToName )
   {
     ofstream File( ToName );
-    for( vector<Excercise>::const_iterator It = Exercises.begin(); It != Exercises.end(); It++ )
+    for( vector<Exercise>::const_iterator It = Exercises.begin(); It != Exercises.end(); It++ )
       File << It->file_name() << " " << It->retries() << " " << It->strike() << endl;
     return File.good();
   } // save( const string& )

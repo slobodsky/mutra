@@ -325,13 +325,154 @@ namespace MuTraWidgets {
     int Beats;
     int Measure;
   }; // NotesListBuilder
+
+  class StatisticsModel : public QAbstractItemModel {
+  public:
+    StatisticsModel( QObject* Parent = nullptr ) : QAbstractItemModel( Parent ), mLesson( nullptr ) {} // StatisticsModel( QObject* )
+    Lesson* lesson() const { return mLesson; }
+    void lesson( Lesson* NewLesson );
+    // Model overrides
+    QModelIndex index( int Row, int Column, const QModelIndex& Parent ) const;
+    QModelIndex parent( const QModelIndex& Index ) const;
+    int rowCount( const QModelIndex& Index ) const;
+    int columnCount( const QModelIndex& Index ) const;
+    QVariant headerData( int Section, Qt::Orientation Orient, int Role ) const;
+    QVariant data( const QModelIndex& Index, int Role ) const;
+  private:
+    enum { EmptyType, LessonType, ExerciseType, StatsType };
+    static unsigned type( quintptr ID ) { return ID & 0xF; }
+    static unsigned exercise( quintptr ID ) { return ( ID >> 4 ) & 0xFFF; }
+    static unsigned stats( quintptr ID ) { return ( ID >> 16 ) & 0xFFFF; }
+    static quintptr pack( unsigned Type, unsigned Exercise = 0, unsigned Stats = 0 ) { return ( Type & 0xF ) | ( ( Exercise & 0xFFF ) << 4 ) | ( ( Stats & 0xFFFF ) << 16 ); }
+    Lesson* mLesson;
+  }; // StatisticsModel
+  void StatisticsModel::lesson( Lesson* NewLesson ) {
+    beginResetModel();
+    mLesson = NewLesson;
+    endResetModel();
+  } // lesson( Lesson* )
+  QModelIndex StatisticsModel::index( int Row, int Column, const QModelIndex& Parent ) const {
+    if( Parent.isValid() ) {
+      switch( type( Parent.internalId() ) ) {
+      case LessonType: return createIndex( Row, Column, pack( ExerciseType, Row ) );
+      case ExerciseType: return createIndex( Row, Column, pack( StatsType, Parent.row(), Row ) );
+      }
+    }
+    else
+      if( Row == 0 ) return createIndex( Row, Column, pack( LessonType, Row ) );
+    return QModelIndex();
+  } // index( int, int, const QModelIndex& ) const
+  QModelIndex StatisticsModel::parent( const QModelIndex& Index ) const {
+    if( Index.isValid() ) {
+      switch( type( Index.internalId() ) ) {
+      case LessonType: return QModelIndex();
+      case ExerciseType: return createIndex( 0, 0, pack( LessonType ) );
+      case StatsType: {
+	int Row = exercise( Index.internalId() );
+	return createIndex( Row, 0, pack( ExerciseType, Row ) );
+      }
+      }
+    }
+    return QModelIndex();
+  } // parent( const QModelIndex& )
+  int StatisticsModel::rowCount( const QModelIndex& Index ) const {
+    //! \todo Make stats for exercises without lesson.
+    //qDebug() << "Get rows for index" << Index;
+    if( !mLesson ) return 0;
+    if( !Index.isValid() ) { /*qDebug() << "We have lesson";*/ return 1; }
+    if( Index.column() != 0 ) return 0;
+    switch( type( Index.internalId() ) ) {
+    case LessonType: /*qDebug() << "Lesson have" << mLesson->exercises().size() << "exercises.";*/ return mLesson->exercises().size();
+    case ExerciseType: /*qDebug() << "Exercise have" << mLesson->exercise( Index.row() ).statistics().size() << "statistics.";*/ return mLesson->exercise( Index.row() ).statistics().size();
+    }
+    return 0;
+  } // rowCount( const QModelIndex& ) const
+  int StatisticsModel::columnCount( const QModelIndex& Index ) const {
+#if 1
+    if( Index.isValid() )
+      switch( type( Index.internalId() ) ) {
+      case LessonType:
+      case ExerciseType:
+	return 1;
+      case StatsType:
+	return 7;
+      }
+#endif
+    return 7;
+  } // columnCount( const QModelIndex& ) const
+  QVariant StatisticsModel::headerData( int Section, Qt::Orientation Orient, int Role ) const {
+    if( Role == Qt::DisplayRole && Orient == Qt::Horizontal )
+      switch( Section ) {
+      case 0: return tr( "Name/Try" );
+      case 1: return tr( "On min" );
+      case 2: return tr( "On max" );
+      case 3: return tr( "Off min" );
+      case 4: return tr( "Off max" );
+      case 5: return tr( "Vel min" );
+      case 6: return tr( "Vel max" );
+      }
+    return QAbstractItemModel::headerData( Section, Orient, Role );
+  } // headerData( int, int ) const
+  QVariant StatisticsModel::data( const QModelIndex& Index, int Role ) const {
+    //!  \todo implement this
+    if( !Index.isValid() || !mLesson ) return QVariant();
+    if( Role == Qt::DisplayRole )
+      switch( type( Index.internalId() ) ) {
+      case LessonType:
+	if( Index.column() == 0 ) return QFileInfo( QString::fromStdString( mLesson->lesson_name() ) ).baseName();
+	return QVariant();
+      case ExerciseType: {
+	const Lesson::Exercise& Ex = mLesson->exercise( exercise( Index.internalId() ) );
+	switch( Index.column() ) { //! \todo Add exercise limits here
+	case 0: return QFileInfo( QString::fromStdString( Ex.file_name() ) ).baseName();
+	}
+      }	break;
+      case StatsType:
+	if( Index.column() == 0 ) return QVariant( Index.row()+1 );
+	else {
+	  ExerciseSequence::NotesStat Stats = mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) );
+	  if( Stats.Result < ExerciseSequence::NoteError )
+	    switch( Index.column() ) {
+	    case 1: return QVariant( Stats.StartMin );
+	    case 2: return QVariant( Stats.StartMax );
+	    case 3: return QVariant( Stats.StopMin );
+	    case 4: return QVariant( Stats.StopMax );
+	    case 5: return QVariant( Stats.VelocityMin );
+	    case 6: return QVariant( Stats.VelocityMax );
+	    }
+	}
+	break;
+      }
+    else if( Role == Qt::BackgroundRole ) {
+      switch( type( Index.internalId() ) ) {
+      case LessonType: return QBrush( QColor( 128, 128, 128 ) );
+      case ExerciseType: return QBrush( QColor( 128, 128, 128, 128 ) );
+      }
+    }
+    else if( Role == Qt::DecorationRole ) {
+      if( Index.column() == 0 && type( Index.internalId() ) == StatsType )
+	switch( mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ).Result ) {
+	case ExerciseSequence::NoError: return QIcon::fromTheme( "gtk-yes" );
+	case ExerciseSequence::NoteError: return QIcon::fromTheme( "gtk-no" );
+	case ExerciseSequence::RythmError: return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
+	case ExerciseSequence::VelocityError: return QIcon::fromTheme( "preferences-desktop-notification-bell" );
+	case ExerciseSequence::EmptyPlay: return QIcon::fromTheme( "user-offline" );
+	}
+    }
+    return QVariant();
+  } // data( const QModelIndex&, int )
   
   MainWindow::MainWindow( QWidget* Parent )
-    : QMainWindow( Parent ), mLesson( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ), mInput( nullptr ), mSequencer( nullptr ),
-    mMetronome( nullptr )
+    : QMainWindow( Parent ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
+      mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
+    QTreeView* TV = new QTreeView( mUI->StatisticsDock );
+    TV->setIndentation( 0 );
+    mStats = new StatisticsModel( TV );
+    TV->setModel( mStats );
+    mUI->StatisticsDock->setWidget( TV );
     mUI->ActionOpen->setShortcut( QKeySequence::Open );
     connect( mUI->ActionOpen, SIGNAL( triggered() ), SLOT( open_file() ) );
     mUI->ActionSave->setShortcut( QKeySequence::Save );
@@ -450,6 +591,7 @@ namespace MuTraWidgets {
   } // open_file()
   bool MainWindow::load_lesson( const string& FileName ) {
     mLesson = new Lesson( FileName );
+    if( mStats ) mStats->lesson( mLesson );
     if( mLesson->exercises().empty() ) return false;
     if( load_exercise( mLesson->file_name() ) ) {
       mStrike = mLesson->strike();
@@ -505,6 +647,7 @@ namespace MuTraWidgets {
     stop_recording();
     complete_exercise();
     if( mLesson ) { //! \todo If the file is modified then ask to save it.
+      if( mStats ) mStats->lesson( nullptr );
       delete mLesson;
       mLesson = nullptr;
     }
@@ -632,6 +775,7 @@ namespace MuTraWidgets {
     default:
       break;
     }
+    if( mLesson ) mLesson->new_stat( Stats );
     qDebug() << "Statistics: start:" << Stats.StartMin << "-" << Stats.StartMax << "stop:" << Stats.StopMin << "-" << Stats.StopMax << "velocity:" << Stats.VelocityMin << "-" << Stats.VelocityMax;
     mUI->ActionExercise->setChecked( false );
     update_piano_roll();

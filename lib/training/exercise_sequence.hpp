@@ -19,7 +19,7 @@ namespace MuTraTrain {
   class ExerciseSequence : public MuTraMIDI::MIDISequence, public MuTraMIDI::Sequencer, public MuTraMIDI::InputDevice::Client
   {
   public:
-    enum { NoError = 0, NoteError = 1, RythmError = 2, VelocityError = 4, EmptyPlay = 8 };
+    enum { NoError = 0, VelocityError, RythmError, NoteError, EmptyPlay };
     struct NotePlay
     {
       bool Visited;

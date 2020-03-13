@@ -140,6 +140,7 @@ namespace MuTraWidgets {
     Ui::ExerciseSettings* mExercisePage;
   }; // SettingsDialog
 
+  class StatisticsModel;
   class MainWindow : public QMainWindow {
     Q_OBJECT
   public:
@@ -164,6 +165,7 @@ namespace MuTraWidgets {
     void start_exercise();
     bool complete_exercise();
     MuTraTrain::Lesson* mLesson;
+    StatisticsModel* mStats;
     int mStrike;
     //! \todo Move the exercise mechanism to a separate object outside of the GUI app, sync with metronome & provide callbacks on exercise start & finish (with result).
     std::string mExerciseName;
