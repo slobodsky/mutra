@@ -10,6 +10,7 @@
 #include "forms/ui_metronome_settings.h"
 #include "forms/ui_devices_settings.h"
 #include "forms/ui_exercise_settings.h"
+#include "forms/ui_midi_mixer.h"
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
@@ -267,6 +268,42 @@ namespace MuTraWidgets {
     QDialog::accept();
   } // accept()
 
+  void prepare_pair( QSlider* Slider, QSpinBox* Box ) {
+    Slider->connect( Box, SIGNAL( valueChanged( int ) ), SLOT( setValue( int ) ) );
+    Slider->setMaximum( 127 );
+    Box->connect( Slider, SIGNAL( valueChanged( int ) ), SLOT( setValue( int ) ) );
+    Box->setMaximum( 127 );
+    Box->setValue( 63 );
+  } // prepare_pair( QSlider*, QSpinBox* )
+  
+  MIDIMixer::MIDIMixer( QWidget* Parent ) : QDialog( Parent ), mSequencer( nullptr ) {
+    mUI = new Ui::MIDIMixer;
+    mUI->setupUi( this );
+    for( int I = 0; I < ChannelsNum; ++I ) {
+      mChannels[ I ].mVolSlider = new QSlider( Qt::Horizontal, this );
+      mChannels[ I ].mVolBox = new QSpinBox( this );
+      prepare_pair( mChannels[ I ].mVolSlider, mChannels[ I ].mVolBox );
+      QObject::connect( mChannels[ I ].mVolBox, QOverload<int>::of( &QSpinBox::valueChanged ), [this, I]( int Volume ) { this->volume_changed( I, Volume ); } );
+      mChannels[ I ].mPanSlider = new QSlider( Qt::Horizontal, this );
+      mChannels[ I ].mPanBox = new QSpinBox( this );
+      prepare_pair( mChannels[ I ].mPanSlider, mChannels[ I ].mPanBox );
+      QObject::connect( mChannels[ I ].mPanBox, QOverload<int>::of( &QSpinBox::valueChanged ), [this, I]( int Pan ) { this->pan_changed( I, Pan ); } );
+      mUI->Mixer->addWidget( new QLabel( QString::number( I+1 ), this ), I, 0 );
+      mUI->Mixer->addWidget( mChannels[ I ].mVolSlider, I, 1 );
+      mUI->Mixer->addWidget( mChannels[ I ].mVolBox, I, 2 );
+      mUI->Mixer->addWidget( mChannels[ I ].mPanSlider, I, 3 );
+      mUI->Mixer->addWidget( mChannels[ I ].mPanBox, I, 4 );
+    }
+  } // MIDIMixer( QWidget* )
+  void MIDIMixer::volume_changed( int Channel, int Value ) {
+    qDebug() << "Channel" << Channel << "volume" << Value << endl;
+    if( mSequencer ) mSequencer->control_change( Channel, 7, Value );
+  } // volume_changed( int, int )
+  void MIDIMixer::pan_changed( int Channel, int Value ) {
+    qDebug() << "Channel" << Channel << "pan" << Value << endl;
+    if( mSequencer ) mSequencer->control_change( Channel, 10, Value );
+  } // pan_changed( int, int )
+  
   struct Note {
     Note( int Value, int Velocity = 127, int Start = 0, int Stop = -1, int Channel = 0, int Track = 0 )
       : mValue( Value ), mVelocity( Velocity ), mStart( Start ), mStop( Stop ), mChannel( Channel ), mTrack( Track ) {}
@@ -487,6 +524,7 @@ namespace MuTraWidgets {
     mUI->ActionSaveAs->setShortcut( QKeySequence::SaveAs );
     connect( mUI->ActionSaveAs, SIGNAL( triggered() ), SLOT( save_file_as() ) );
     connect( mUI->ActionOptions, SIGNAL( triggered() ), SLOT( edit_options() ) );
+    connect( mUI->ActionMIDImixer, SIGNAL( triggered() ), SLOT( midi_mixer() ) );
     mUI->ActionQuit->setShortcut( QKeySequence::Quit );
     qApp->connect( mUI->ActionQuit, SIGNAL( triggered() ), SLOT( quit() ) );
     setCentralWidget( new QGraphicsView( this ) );
@@ -688,6 +726,11 @@ namespace MuTraWidgets {
       Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
     }
   } // edit_options()
+  void MainWindow::midi_mixer() {
+    MIDIMixer Dlg( this );
+    Dlg.sequencer( mSequencer );
+    Dlg.exec();
+  } // midi_mixer()
   void MainWindow::toggle_metronome( bool On ) {
     if( mMetronome && mSequencer ) {
       if( On ) { mMetronome->start(); qDebug() << "Start metronome."; }

@@ -3,6 +3,8 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QDialog>
+#include <QSlider>
+#include <QSpinBox>
 #include <QTimer>
 #include <QAbstractListModel>
 #include <midi/midi_utility.hpp>
@@ -16,6 +18,7 @@ namespace Ui {
   class MetronomeSettings;
   class ExerciseSettings;
   class SettingsDialog;
+  class MIDIMixer;
 } // Ui
 
 namespace MuTraWidgets {
@@ -139,6 +142,28 @@ namespace MuTraWidgets {
     Ui::MetronomeSettings* mMetronomePage;
     Ui::ExerciseSettings* mExercisePage;
   }; // SettingsDialog
+  //! \todo Consider make it just a widget.
+  class MIDIMixer : public QDialog {
+    Q_OBJECT
+    struct ChannelObjects {
+      ChannelObjects() : mVolSlider( nullptr ), mVolBox( nullptr ), mPanSlider( nullptr ), mPanBox( nullptr ) {}
+      QSlider* mVolSlider;
+      QSpinBox* mVolBox;
+      QSlider* mPanSlider;
+      QSpinBox* mPanBox;
+    }; // ChannelObjects
+    enum { ChannelsNum = 16 };
+  public:
+    MIDIMixer( QWidget* Parent = nullptr );
+    void sequencer( MuTraMIDI::Sequencer* NewSequencer ) { mSequencer = NewSequencer; }
+  public slots:
+    void volume_changed( int Channel, int Value );
+    void pan_changed( int Channel, int Value );
+  private:
+    ChannelObjects mChannels[ ChannelsNum ];
+    Ui::MIDIMixer* mUI;
+    MuTraMIDI::Sequencer* mSequencer;
+  }; // MIDIMixer
 
   class StatisticsModel;
   class MainWindow : public QMainWindow {
@@ -154,6 +179,7 @@ namespace MuTraWidgets {
     bool save_file();
     bool save_file_as();
     void edit_options();
+    void midi_mixer();
     void toggle_metronome( bool On );
     void toggle_record( bool On );
     void toggle_exercise( bool On );

@@ -46,6 +46,7 @@
      <string>&amp;Options</string>
     </property>
     <addaction name="ActionOptions"/>
+    <addaction name="ActionMIDImixer"/>
    </widget>
    <addaction name="menuThis_is_an_application_stub"/>
    <addaction name="menuExerci_se"/>
@@ -152,6 +153,11 @@
    </property>
    <property name="text">
     <string>Start/Stop</string>
+   </property>
+  </action>
+  <action name="ActionMIDImixer">
+   <property name="text">
+    <string>MIDI mixer...</string>
    </property>
   </action>
  </widget>
