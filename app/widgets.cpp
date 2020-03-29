@@ -16,6 +16,7 @@ using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::NoteEvent;
+using MuTraMIDI::InputConnector;
 using MuTraTrain::MetronomeOptions;
 using MuTraTrain::ExerciseSequence;
 using MuTraTrain::Lesson;
@@ -209,7 +210,7 @@ namespace MuTraWidgets {
   void SettingsDialog::system( const SystemOptions& NewOptions ) {
     mDevicesPage->MIDIInput->setCurrentIndex( mDevicesPage->MIDIInput->findData( QString::fromStdString( NewOptions.midi_input() ) ) );
     mDevicesPage->MIDIOutput->setCurrentIndex( mDevicesPage->MIDIOutput->findData( QString::fromStdString( NewOptions.midi_output() ) ) );
-    mDevicesPage->MIDIEcho->setChecked( mSystem.midi_echo() );
+    mDevicesPage->MIDIEcho->setChecked( NewOptions.midi_echo() );
     mSystem = NewOptions;
   } // system( const SystemOptions& )
   void SettingsDialog::metronome( const MetronomeOptions& NewOptions ) {
@@ -507,8 +508,8 @@ namespace MuTraWidgets {
   } // data( const QModelIndex&, int )
   
   MainWindow::MainWindow( QWidget* Parent )
-    : QMainWindow( Parent ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
-      mInput( nullptr ), mSequencer( nullptr ), mMetronome( nullptr )
+    : QMainWindow( Parent ), State( StateIdle ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
+      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
@@ -544,12 +545,18 @@ namespace MuTraWidgets {
     } else statusBar()->showMessage( "Can't get sequencer" );
     mInput = InputDevice::get_instance( SysOp.midi_input() );
     if( !mInput ) QMessageBox::warning( this, tr( "Device problem" ), tr( "Can't open input device." ) );
+    else if( mSequencer && SysOp.midi_echo() ) {
+      mEchoConnector = new InputConnector( mSequencer );
+      mInput->add_client( *mEchoConnector );
+      mInput->start();
+    }
     connect( &mTimer, SIGNAL( timeout() ), SLOT( timer() ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
     if( mMetronome ) delete mMetronome;
     if( mSequencer ) delete mSequencer;
     if( mInput ) delete mInput;
+    if( mEchoConnector ) delete mEchoConnector;
     if( mMIDI ) delete mMIDI;
     if( mUI ) delete mUI;
   } // ~MainWindow()
@@ -741,13 +748,15 @@ namespace MuTraWidgets {
     if( !mRec ) return;
     if( mMetronome ) mMetronome->stop();
     if( mInput ) {
-      mInput->stop();
+      if( !mEchoConnector ) mInput->stop();
       mInput->remove_client( *mRec );
     }
     mRec = nullptr;
     update_buttons();
     update_piano_roll();
   } // stop_recording()
+  void MainWindow::toggle_playback( bool On ) {
+  } // toggle_playback( bool )
   void MainWindow::toggle_record( bool On ) {
     if( On ) {
       if( mRec ) return;
@@ -761,7 +770,7 @@ namespace MuTraWidgets {
       mMIDI = mRec;
       //! \todo Ensure we have an input device
       mInput->add_client( *mRec );
-      mInput->start();
+      if( !mEchoConnector ) mInput->start();
       mMetronome->start();
     }
     else stop_recording();
@@ -802,7 +811,7 @@ namespace MuTraWidgets {
     mInput->add_client( *mExercise );
     mExercise->new_take();
     mExercise->start();
-    mInput->start();
+    if( !mEchoConnector ) mInput->start();
     if( mMetronome ) {
       qDebug() << "Start metronome" << mMetronome->options().beat() << "/" << (1<<mMetronome->options().measure()) << "tempo:" << (60000000/mMetronome->tempo()) << "bpm" << mMetronome->tempo() << "uspq";
       mMetronome->start();
@@ -813,7 +822,7 @@ namespace MuTraWidgets {
     if( !mExercise ) return false;
     mTimer.stop();
     mMetronome->stop();
-    mInput->stop();
+    if( !mEchoConnector ) mInput->stop();
     mInput->remove_client( *mExercise );
     ExerciseSequence::NotesStat Stats;
     switch( mExercise->compare( Stats ) ) {

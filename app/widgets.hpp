@@ -181,6 +181,7 @@ namespace MuTraWidgets {
     void edit_options();
     void midi_mixer();
     void toggle_metronome( bool On );
+    void toggle_playback( bool On );
     void toggle_record( bool On );
     void toggle_exercise( bool On );
     bool close_file();
@@ -190,6 +191,7 @@ namespace MuTraWidgets {
     bool load_exercise( const std::string& FileName );
     void start_exercise();
     bool complete_exercise();
+    enum { StateIdle, StatePlayback, StateRecording, StateMetronome, StateExercise } State;
     MuTraTrain::Lesson* mLesson;
     StatisticsModel* mStats;
     int mStrike;
@@ -204,6 +206,7 @@ namespace MuTraWidgets {
     MuTraMIDI::Recorder* mRec;
     MuTraMIDI::InputDevice* mInput;
     MuTraMIDI::Sequencer* mSequencer;
+    MuTraMIDI::InputConnector* mEchoConnector;
     MuTraTrain::Metronome* mMetronome;
     Ui::MainWindow* mUI;
   }; // MainWindow

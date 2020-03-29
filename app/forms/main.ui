@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>917</width>
+    <width>938</width>
     <height>730</height>
    </rect>
   </property>
@@ -19,7 +19,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>917</width>
+     <width>938</width>
      <height>30</height>
     </rect>
    </property>
@@ -38,6 +38,7 @@
      <string>Exerci&amp;se</string>
     </property>
     <addaction name="ActionMetronome"/>
+    <addaction name="ActionPlay"/>
     <addaction name="ActionRecord"/>
     <addaction name="ActionExercise"/>
    </widget>
@@ -158,6 +159,18 @@
   <action name="ActionMIDImixer">
    <property name="text">
     <string>MIDI mixer...</string>
+   </property>
+  </action>
+  <action name="ActionPlay">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset theme="media-playback-start">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
+   <property name="text">
+    <string>Play</string>
    </property>
   </action>
  </widget>

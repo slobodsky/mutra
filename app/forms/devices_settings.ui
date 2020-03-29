@@ -30,7 +30,7 @@
    <item row="2" column="0" colspan="2">
     <widget class="QCheckBox" name="MIDIEcho">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="toolTip">
       <string>Send MIDI events from the input to the output</string>
