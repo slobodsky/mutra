@@ -35,9 +35,9 @@ namespace MuTraMIDI {
   {
   protected: // Эти значения связаны с воспроизведением файла. В общем случае (для простых обработчиков) они не нужны.
     double Start;		//!< Реальное время начала в микросекундах (все прочие - с начала пьесы)
-    unsigned Time;	//!< Текущее время в микросекундах
+    int64_t Time;	//!< Текущее время в микросекундах
     unsigned Clock;	//!< Текущее время в MIDI-клоках
-    unsigned TempoTime;	//!< Время смены темпа в микросекундах
+    int64_t TempoTime;	//!< Время смены темпа в микросекундах
     unsigned TempoClock;	//!< Время смены темпа в MIDI-клоках
     double Division;	//!< Количество единиц времени MIDI на четвертную ноту
     unsigned Tempo;	//!< Длительность четвертной ноты в микросекундах
@@ -85,20 +85,21 @@ namespace MuTraMIDI {
     } // reset()
     virtual void start() {}
     virtual void wait_for( unsigned WaitClock ) {
+      std::cout << "Wait for " << WaitClock << std::endl;
       Clock = WaitClock;
-      Time = static_cast<int>( TempoTime + ( Clock-TempoClock ) * Tempo / Division );
+      Time = ( TempoTime + int64_t( Clock-TempoClock ) * Tempo / Division );
       wait_for_usec( Start + Time );
     } // wait_for( unsigned )
     virtual void division( unsigned MIDIClockForQuarter ) { Division = MIDIClockForQuarter; }
     unsigned tempo() const { return Tempo; }
     virtual void tempo( unsigned uSecForQuarter ) {
-      TempoTime += static_cast<int>( ( Clock-TempoClock ) * Tempo / Division ); // Сколько времени в микросекундах прошло с тех пор, как мы меняли темп
+      TempoTime += ( ( Clock-TempoClock ) * Tempo / Division ); // Сколько времени в микросекундах прошло с тех пор, как мы меняли темп
       TempoClock = Clock;
       Tempo = uSecForQuarter;
     } // tempo( unsigned )
   protected:
     //! \todo Может быть, это надо вывести в отдельное устройство.
-    virtual void wait_for_usec( double WaitMicroSecs ) {}
+    virtual void wait_for_usec( int64_t WaitMicroSecs ) {}
   }; // Sequencer
 
   //! \brief Абстрактный входной поток. Может быть потоком C++ или буфером в форме указателя (и размера) или контейнера.

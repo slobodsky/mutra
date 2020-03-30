@@ -6,6 +6,7 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QTimer>
+#include <QThread>
 #include <QAbstractListModel>
 #include <midi/midi_utility.hpp>
 #include <training/metronome.hpp>
@@ -166,6 +167,20 @@ namespace MuTraWidgets {
   }; // MIDIMixer
 
   class StatisticsModel;
+  //! \todo Move this to MuTraMIDI with std::threads instad of QThread.
+  class Player : public QThread {
+    Q_OBJECT
+  public:
+    Player( MuTraMIDI::MIDISequence* Play, MuTraMIDI::Sequencer* Seq, QObject* Parent = nullptr );
+    Player( const std::vector<std::string>& PlayList, MuTraMIDI::Sequencer* Seq, QObject* Parent = nullptr );
+  signals:
+    void playback_complete();
+  private:
+    void run() override;
+    MuTraMIDI::Sequencer* mSequencer;
+    MuTraMIDI::MIDISequence* mPlay;
+    std::vector<std::string> mPlayList;
+  }; // Player
   class MainWindow : public QMainWindow {
     Q_OBJECT
   public:
@@ -186,6 +201,8 @@ namespace MuTraWidgets {
     void toggle_exercise( bool On );
     bool close_file();
     void timer();
+  private slots:
+    void playback_complete();
   private:
     bool load_lesson( const std::string& FileName );
     bool load_exercise( const std::string& FileName );
@@ -208,6 +225,7 @@ namespace MuTraWidgets {
     MuTraMIDI::Sequencer* mSequencer;
     MuTraMIDI::InputConnector* mEchoConnector;
     MuTraTrain::Metronome* mMetronome;
+    Player* mPlayer;
     Ui::MainWindow* mUI;
   }; // MainWindow
 } // MuTraWidgets

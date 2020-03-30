@@ -103,6 +103,7 @@ namespace MuTraMIDI {
 	   << BYTE( (Bend & (0x7F<<7) ) << (16-7) ) << flush; // MSB
   } // control_change( int, int, int )
 
+  const int64_t Million64 = 1000000;
   void LinuxSequencer::start()
   {
     MaxDiff = 0;
@@ -112,13 +113,14 @@ namespace MuTraMIDI {
     TotalInDiff = 0;
     timeval TimeVal;
     gettimeofday( &TimeVal, 0 );
-    Start = TimeVal.tv_sec*1000000.0 + TimeVal.tv_usec;
+    Start = TimeVal.tv_sec*Million64 + TimeVal.tv_usec;
   } // start()
-  void LinuxSequencer::wait_for_usec( double WaitMicroSecs )
+  void LinuxSequencer::wait_for_usec( int64_t WaitMicroSecs )
   {
+    cout << "Wait for " << WaitMicroSecs << " µs" << endl;
     timeval TimeVal;
     gettimeofday( &TimeVal, 0 );
-    double Now = TimeVal.tv_sec*1000000.0 + TimeVal.tv_usec;
+    int64_t Now = TimeVal.tv_sec*Million64 + TimeVal.tv_usec;
     int Diff = static_cast<int>( Now - WaitMicroSecs );
     if( Diff > 0 ) // Только если вызов пришёл позже ожидаемого времени
     {
@@ -128,17 +130,17 @@ namespace MuTraMIDI {
     }
     while( Now < WaitMicroSecs )
     {
-      double Period = WaitMicroSecs - Now;
+      int64_t Period = WaitMicroSecs - Now;
       if( Period > 20000 ) // Иначе будет заметна погрешность nanosleep 
       {
 	Period -= 20000;
 	timespec Wait;
-	Wait.tv_sec = static_cast<time_t>( Period / 1000000 );
-	Wait.tv_nsec = static_cast<long>( ( Period - Wait.tv_sec * 1000000.0 ) * 1000 );
+	Wait.tv_sec = static_cast<time_t>( Period / Million64 );
+	Wait.tv_nsec = static_cast<long>( ( Period - Wait.tv_sec * Million64 ) * 1000 );
 	nanosleep( &Wait, 0 );
       }
       gettimeofday( &TimeVal, 0 );
-      Now = TimeVal.tv_sec*1000000.0 + TimeVal.tv_usec;
+      Now = TimeVal.tv_sec*Million64 + TimeVal.tv_usec;
     }
     Diff = static_cast<int>( Now - WaitMicroSecs );
     if( Diff < 0 )
@@ -184,7 +186,7 @@ namespace MuTraMIDI {
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output( Seq, &Event );
-    if( Err < 0 ) cerr << "Can't send note on." << Err << endl;
+    if( Err < 0 ) cerr << "Can't send note on: " << snd_strerror( Err ) << endl;
     // else cerr << "Note on sent." << endl;
     snd_seq_drain_output( Seq );
   } // note_on( int, int, int ) 

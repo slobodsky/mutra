@@ -30,7 +30,7 @@ namespace MuTraMIDI {
     double average_in_diff() { return Number > 0 ? TotalInDiff / Number : 0; }
     int max_in_diff() { return MaxInDiff; }
   protected:
-    void wait_for_usec( double WaitMicroSecs );
+    void wait_for_usec( int64_t WaitMicroSecs ) override;
   }; // LinuxSequencer
 
   class ALSASequencer : public LinuxSequencer

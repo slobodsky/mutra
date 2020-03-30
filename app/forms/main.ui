@@ -37,9 +37,9 @@
     <property name="title">
      <string>Exerci&amp;se</string>
     </property>
-    <addaction name="ActionMetronome"/>
     <addaction name="ActionPlay"/>
     <addaction name="ActionRecord"/>
+    <addaction name="ActionMetronome"/>
     <addaction name="ActionExercise"/>
    </widget>
    <widget class="QMenu" name="menu_Options">

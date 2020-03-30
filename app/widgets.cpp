@@ -506,10 +506,27 @@ namespace MuTraWidgets {
     }
     return QVariant();
   } // data( const QModelIndex&, int )
+
+  Player::Player( MIDISequence* Play, Sequencer* Seq, QObject* Parent ) : QThread( Parent ), mSequencer( Seq ), mPlay( Play ) {}
+  Player::Player( const vector<string>& PlayList, Sequencer* Seq, QObject* Parent ) : QThread( Parent ), mSequencer( Seq ), mPlayList( PlayList ) {}
+  void Player::run() {
+    if( !mSequencer ) return; //!< \todo Report error
+    if( mPlay ) {
+      mPlay->play( *mSequencer );
+      emit playback_complete();
+    }
+    else {
+      for( auto FileName : mPlayList ) {
+	MIDISequence Play( FileName );
+	Play.play( *mSequencer );
+      }
+      emit playback_complete();
+    }
+  } // run() override
   
   MainWindow::MainWindow( QWidget* Parent )
     : QMainWindow( Parent ), State( StateIdle ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
-      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr )
+      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr ), mPlayer( nullptr )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
@@ -530,10 +547,12 @@ namespace MuTraWidgets {
     qApp->connect( mUI->ActionQuit, SIGNAL( triggered() ), SLOT( quit() ) );
     setCentralWidget( new QGraphicsView( this ) );
     QToolBar* ExerciseBar = addToolBar( tr( "Exercise" ) );
-    ExerciseBar->addAction( mUI->ActionMetronome );
-    connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
+    ExerciseBar->addAction( mUI->ActionPlay );
+    connect( mUI->ActionPlay, SIGNAL( triggered( bool ) ), SLOT( toggle_playback( bool ) ) );
     ExerciseBar->addAction( mUI->ActionRecord );
     connect( mUI->ActionRecord, SIGNAL( triggered( bool ) ), SLOT( toggle_record( bool ) ) );
+    ExerciseBar->addAction( mUI->ActionMetronome );
+    connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
     ExerciseBar->addAction( mUI->ActionExercise );
     connect( mUI->ActionExercise, SIGNAL( triggered( bool ) ), SLOT( toggle_exercise( bool ) ) );
     SystemOptions SysOp = Application::get()->system_options();
@@ -553,6 +572,7 @@ namespace MuTraWidgets {
     connect( &mTimer, SIGNAL( timeout() ), SLOT( timer() ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
+    if( mPlayer ) delete mPlayer;
     if( mMetronome ) delete mMetronome;
     if( mSequencer ) delete mSequencer;
     if( mInput ) delete mInput;
@@ -641,6 +661,12 @@ namespace MuTraWidgets {
       else if( FileName.endsWith( ".mles" ) ) load_lesson( FileName.toStdString() );
     }
   } // open_file()
+  void MainWindow::playback_complete() {
+    if( mPlayer ) {
+      delete mPlayer;
+      mPlayer = nullptr;
+    }
+  } // playback_complete()
   bool MainWindow::load_lesson( const string& FileName ) {
     mLesson = new Lesson( FileName );
     if( mStats ) mStats->lesson( mLesson );
@@ -756,6 +782,15 @@ namespace MuTraWidgets {
     update_piano_roll();
   } // stop_recording()
   void MainWindow::toggle_playback( bool On ) {
+    if( mPlayer ) {
+      delete mPlayer;
+      mPlayer = nullptr;
+    }
+    else if( mMIDI && mSequencer ) {
+      mPlayer = new Player( mMIDI, mSequencer, this );
+      connect( mPlayer, SIGNAL( playback_complete() ), SLOT( playback_complete() ) );
+      mPlayer->start();
+    }
   } // toggle_playback( bool )
   void MainWindow::toggle_record( bool On ) {
     if( On ) {
