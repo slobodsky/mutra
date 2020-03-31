@@ -613,9 +613,10 @@ namespace MuTraWidgets {
 	  if( N.mValue < Low ) Low = N.mValue;
 	  if( N.mValue > High ) High = N.mValue;
 	}
+	int Bottom = 0;
 	if( High > Low ) {
 	  int Top = ( 60-High ) * H;
-	  int Bottom = ( 60-Low+1 ) * H;
+	  Bottom = ( 60-Low+1 ) * H;
 	  int Beat = 0;
 	  for( int X = 0; X < Finish; X += Div ) {
 	    QPen Pen;
@@ -625,6 +626,9 @@ namespace MuTraWidgets {
 	  }
 	  for( int Y = Top; Y <= Bottom; Y += H )
 	    Sc->addLine( 0, Y, Finish / K, Y );
+	  for( int Y = Bottom + 16; Y < Bottom + 16 + 127; Y += 16 )
+	    Sc->addLine( 0, Y, Finish / K, Y );
+	  Sc->addLine( 0, Bottom + 16 + 127, Finish / K, Bottom + 16 + 127 );
 	}
 	for( Note N: NL.Notes ) {
 #ifdef MUTRA_DEBUG
@@ -636,8 +640,13 @@ namespace MuTraWidgets {
 	    if( TrackPlace <= 0 ) continue;
 	  QColor Clr = Colors[ TrackPlace % ColorsNum ];
 	  Clr.setAlphaF( N.mVelocity / 127.0 );
-	  Sc->addRect( (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K, (60-N.mValue) * H + (TrackPlace * BarH), (N.mStop < 0 ? Div : N.mStop-N.mStart) / K, BarH,
-		       QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
+	  int Start = (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K;
+	  int Stop = (N.mStop < 0 ? Div : N.mStop-N.mStart) / K;
+	  Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
+	  if( N.mTrack == 0 || N.mTrack == TracksCount-1 ) {
+	    Sc->addRect( Start, Bottom + H + 127 - N.mVelocity, Stop, N.mVelocity, QPen( N.mTrack == 0 ? Qt::gray : Qt::cyan ),
+			 QBrush( N.mTrack == 0 ? QColor( 0, 255, 80, 32 ) : QColor( 0, 80, 255, 32 ) ) );
+	  }
 	}
       }
       View->setScene( Sc );
