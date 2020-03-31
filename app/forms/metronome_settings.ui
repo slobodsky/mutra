@@ -94,9 +94,6 @@
        <property name="maximum">
         <number>300</number>
        </property>
-       <property name="stepType">
-        <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
-       </property>
        <property name="value">
         <number>120</number>
        </property>
@@ -141,9 +138,6 @@
        <property name="maximum">
         <number>127</number>
        </property>
-       <property name="stepType">
-        <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
-       </property>
        <property name="value">
         <number>100</number>
        </property>
@@ -174,9 +168,6 @@
        <property name="maximum">
         <number>127</number>
        </property>
-       <property name="stepType">
-        <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
-       </property>
        <property name="value">
         <number>64</number>
        </property>
@@ -192,9 +183,6 @@
        </property>
        <property name="maximum">
         <number>127</number>
-       </property>
-       <property name="stepType">
-        <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
        </property>
        <property name="value">
         <number>80</number>
@@ -224,7 +212,8 @@
         <string/>
        </property>
        <property name="icon">
-        <iconset theme="media-playback-start"/>
+        <iconset theme="media-playback-start">
+         <normaloff>.</normaloff>.</iconset>
        </property>
       </widget>
      </item>
