@@ -117,7 +117,9 @@ namespace MuTraMIDI {
   } // start()
   void LinuxSequencer::wait_for_usec( int64_t WaitMicroSecs )
   {
+#ifdef MUTRA_DEBUG
     cout << "Wait for " << WaitMicroSecs << " µs" << endl;
+#endif // MUTRA_DEBUG
     timeval TimeVal;
     gettimeofday( &TimeVal, 0 );
     int64_t Now = TimeVal.tv_sec*Million64 + TimeVal.tv_usec;

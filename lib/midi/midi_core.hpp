@@ -85,7 +85,9 @@ namespace MuTraMIDI {
     } // reset()
     virtual void start() {}
     virtual void wait_for( unsigned WaitClock ) {
+#ifdef MUTRA_DEBUG
       std::cout << "Wait for " << WaitClock << std::endl;
+#endif // MUTRA_DEBUG
       Clock = WaitClock;
       Time = ( TempoTime + int64_t( Clock-TempoClock ) * Tempo / Division );
       wait_for_usec( Start + Time );
