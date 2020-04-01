@@ -591,6 +591,7 @@ namespace MuTraWidgets {
   void MainWindow::update_piano_roll() {
     if( QGraphicsView* View = qobject_cast<QGraphicsView*>( centralWidget() ) ) {
       QGraphicsScene* Sc = new QGraphicsScene( View );
+      Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
       if( mMIDI ) {
 	int Div = mMIDI->division();
 	int TracksCount = mMIDI->tracks().size();
