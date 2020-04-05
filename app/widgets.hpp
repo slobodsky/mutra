@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QThread>
 #include <QAbstractListModel>
+#include <QDBusPendingCallWatcher>
 #include <midi/midi_utility.hpp>
 #include <training/metronome.hpp>
 #include <training/exercise_sequence.hpp>
@@ -227,6 +228,8 @@ namespace MuTraWidgets {
     MuTraTrain::Metronome* mMetronome;
     Player* mPlayer;
     Ui::MainWindow* mUI;
+    QDBusPendingCallWatcher* mDBusReply;
+    int mScreenSaverCookie;
   }; // MainWindow
 } // MuTraWidgets
 #endif // MUTRA_WIDGETS_HPP

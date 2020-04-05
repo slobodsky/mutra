@@ -173,128 +173,116 @@ namespace MuTraMIDI {
   }
 
   void ALSASequencer::note_on( int Channel, int Note, int Velocity ) 
-  {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+  { //! \todo Consider use a single method for preparing event structure.
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_NOTEON;
-    Event->data.note.channel = Channel;
-    Event->data.note.note = Note;
-    Event->data.note.velocity = Velocity;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_NOTEON;
+    Event.data.note.channel = Channel;
+    Event.data.note.note = Note;
+    Event.data.note.velocity = Velocity;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send note on: " << snd_strerror( Err ) << endl;
     // else cerr << "Note on sent." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // note_on( int, int, int ) 
   void ALSASequencer::note_off( int Channel, int Note, int Velocity )
   {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_NOTEOFF;
-    Event->data.note.channel = Channel;
-    Event->data.note.note = Note;
-    Event->data.note.velocity = Velocity;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_NOTEOFF;
+    Event.data.note.channel = Channel;
+    Event.data.note.note = Note;
+    Event.data.note.velocity = Velocity;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send note off." << Err << endl;
     // else cerr << "Note off sent." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // note_off( int, int, int ) 
   void ALSASequencer::after_touch( int Channel, int Note, int Velocity )
   {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_KEYPRESS;
-    Event->data.note.channel = Channel;
-    Event->data.note.note = Note;
-    Event->data.note.velocity = Velocity;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_KEYPRESS;
+    Event.data.note.channel = Channel;
+    Event.data.note.note = Note;
+    Event.data.note.velocity = Velocity;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send aftertouch." << Err << endl;
     // else cerr << "Aftertouch sent." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // after_touch( int, int, int )
   void ALSASequencer::program_change( int Channel, int NewProgram )
   {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_PGMCHANGE;
-    Event->data.control.channel = Channel;
-    Event->data.control.value = NewProgram;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_PGMCHANGE;
+    Event.data.control.channel = Channel;
+    Event.data.control.value = NewProgram;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send program change." << Err << " " << EAGAIN << endl;
     // else cerr << "Program changed." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // program_change( int, int )
   void ALSASequencer::control_change( int Channel, int Control, int Value )
   {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_CONTROLLER;
-    Event->data.control.channel = Channel;
-    Event->data.control.param = Control;
-    Event->data.control.value = Value;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_CONTROLLER;
+    Event.data.control.channel = Channel;
+    Event.data.control.param = Control;
+    Event.data.control.value = Value;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send controller event." << Err << " " << EAGAIN << endl;
     // else cerr << "Controller sent." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // control_change( int, int, int )
   void ALSASequencer::pitch_bend( int Channel, int Bend )
   {
-    snd_seq_event_t* Event = new snd_seq_event_t;
-    snd_seq_ev_clear( Event );
-    snd_seq_ev_set_direct( Event );
-    snd_seq_ev_set_fixed( Event );
+    snd_seq_event_t Event;
+    snd_seq_ev_clear( &Event );
+    snd_seq_ev_set_direct( &Event );
+    snd_seq_ev_set_fixed( &Event );
 
-    Event->type = SND_SEQ_EVENT_PITCHBEND;
-    Event->data.control.channel = Channel;
-    Event->data.control.value = Bend;
-    Event->source.client = Client;
-    Event->source.port = 0;
-    Event->dest.client = OutClient;
-    Event->dest.port = OutPort;
-    int Err = snd_seq_event_output( Seq, Event );
+    Event.type = SND_SEQ_EVENT_PITCHBEND;
+    Event.data.control.channel = Channel;
+    Event.data.control.value = Bend;
+    Event.source.client = Client;
+    Event.source.port = 0;
+    Event.dest.client = OutClient;
+    Event.dest.port = OutPort;
+    int Err = snd_seq_event_output_direct( Seq, &Event );
     if( Err < 0 ) cerr << "Can't send pitch band." << Err << " " << EAGAIN << endl;
     // else cerr << "Pitch bended." << endl;
-    snd_seq_drain_output( Seq );
-    delete Event;
   } // control_change( int, int, int )
 
   void ALSASequencer::start()

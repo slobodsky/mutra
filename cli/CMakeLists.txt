@@ -8,3 +8,6 @@ target_link_libraries( music_trainer_input_test music_trainer_midi music_trainer
 
 add_executable( music_trainer_light trainer_light.cpp )
 target_link_libraries( music_trainer_light music_trainer_midi music_trainer_training pthread )
+
+add_executable( midi_file_printer midi_file_printer.cpp )
+target_link_libraries( midi_file_printer music_trainer_midi )

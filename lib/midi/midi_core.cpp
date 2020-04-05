@@ -79,7 +79,7 @@ namespace MuTraMIDI {
     LastCount = Length;
   } // read( unsigned char*, size_t )
   void InStream::skip( size_t Length ) {
-    for( size_t I = 0; I < Length; ++I ) get();
+    for( size_t I = 0; I < Length && !eof(); ++I ) get();
     LastCount = Length;
   } // skip( size_t )
   int InStream::get_int( int Length ) {

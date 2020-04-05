@@ -3,6 +3,9 @@
 #include <QToolBar>
 #include <QGraphicsView>
 #include <QMessageBox>
+#include <QDBusConnection>
+#include <QDBusPendingReply>
+#include <QDBusError>
 #include "widgets.hpp"
 #include <QDebug>
 #include "forms/ui_main.h"
@@ -526,7 +529,7 @@ namespace MuTraWidgets {
   
   MainWindow::MainWindow( QWidget* Parent )
     : QMainWindow( Parent ), State( StateIdle ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
-      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr ), mPlayer( nullptr )
+      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr ), mPlayer( nullptr ), mDBusReply( nullptr ), mScreenSaverCookie( -1 )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
@@ -856,6 +859,23 @@ namespace MuTraWidgets {
     mInput->add_client( *mExercise );
     mExercise->new_take();
     mExercise->start();
+    //! \todo Move to some special object with platform independent call like enableScreenSaver( true/false )
+    QDBusMessage Call = QDBusMessage::createMethodCall( "org.freedesktop.ScreenSaver", "/ScreenSaver", QString(), "Inhibit" );
+    Call.setArguments( QList<QVariant>() << QString( "MusicTrainer" ) << QString( "Exercise" ) );
+    mDBusReply = new QDBusPendingCallWatcher( QDBusConnection::sessionBus().asyncCall( Call ), this );
+    connect( mDBusReply, &QDBusPendingCallWatcher::finished, [this]( QDBusPendingCallWatcher* Watcher ) {
+							       QDBusPendingReply<unsigned> Reply( *Watcher );
+							       if( Reply.isError() ) {
+								 qDebug() << "Can't disable screensaver:" << Reply.error().message();
+								 mScreenSaverCookie = -1;
+							       }
+							       else
+								 mScreenSaverCookie = Reply.value();
+							       if( Watcher == mDBusReply ) {
+								 delete mDBusReply;
+								 mDBusReply = nullptr;
+							       }
+							     } );
     if( !mEchoConnector ) mInput->start();
     if( mMetronome ) {
       qDebug() << "Start metronome" << mMetronome->options().beat() << "/" << (1<<mMetronome->options().measure()) << "tempo:" << (60000000/mMetronome->tempo()) << "bpm" << mMetronome->tempo() << "uspq";
@@ -884,6 +904,21 @@ namespace MuTraWidgets {
     qDebug() << "Statistics: start:" << Stats.StartMin << "-" << Stats.StartMax << "stop:" << Stats.StopMin << "-" << Stats.StopMax << "velocity:" << Stats.VelocityMin << "-" << Stats.VelocityMax;
     mUI->ActionExercise->setChecked( false );
     update_piano_roll();
+    if( mScreenSaverCookie >= 0 ) {
+      QDBusMessage Call = QDBusMessage::createMethodCall( "org.freedesktop.ScreenSaver", "/ScreenSaver", QString(), "UnInhibit" );
+      Call.setArguments( QList<QVariant>() << unsigned( mScreenSaverCookie ) );
+      mDBusReply = new QDBusPendingCallWatcher( QDBusConnection::sessionBus().asyncCall( Call ), this );
+      connect( mDBusReply, &QDBusPendingCallWatcher::finished, [this]( QDBusPendingCallWatcher* Watcher ) {
+								 QDBusPendingReply<> Reply( *Watcher );
+								 if( Reply.isError() )
+								   qDebug() << "Can't reenable screensaver for cookie" << mScreenSaverCookie << ":" << Reply.error().message();
+								 if( Watcher == mDBusReply ) {
+								   delete mDBusReply;
+								   mDBusReply = nullptr;
+								 }
+								 mScreenSaverCookie = -1;
+							       } );
+    }
     return Stats.Result == ExerciseSequence::NoError;
   } // complete_exercise()
   
