@@ -7,10 +7,26 @@ using std::endl;
 namespace MuTraMIDI {
   string note_name( int Note ) {
     static const string Notes[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    static const char* Octavas = "0123456789a";
-    return Notes[ ( Note & 0x7F ) % 12 ] + Octavas[ ( Note & 0x7F ) / 12 ];
+    static const char* Octaves = "0123456789a";
+    return Notes[ ( Note & 0x7F ) % 12 ] + Octaves[ ( Note & 0x7F ) / 12 ];
   } // note_name( int )
 
+  string Names::note_letter( int Note ) {
+    if( Note < 0 || Note > 6 ) return "";
+    return sNoteLetters[ Note ];
+  } // note_letter( int )
+  string Names::note_name( int Note ) {
+    if( Note < 0 || Note > 6 ) return "";
+    return sNoteNames[ Note ];
+  } // note_name( int )
+  string Names::octave_name( int Octave ) {
+    if( Octave < 0 || Octave > 8 ) return "";
+    return sOctaveNames[ Octave ];
+  } // octave_name( int )
+  string Names::sNoteLetters[] = { "C", "D", "E", "F", "G", "A", "B" };
+  string Names::sNoteNames[] = { "Do", "Re", "Mi", "Fa", "Sol", "La", "Si" };
+  string Names::sOctaveNames[] = { "Sub-contra", "Contra", "Great", "Small", "1-line", "2-line", "3-line", "4-line", "5-line" };
+  
   void EventsPrinter::event_received( const Event& Ev ) { Ev.print( cout ); cout << endl; }
   Recorder::Recorder( int BeatsPerMinute ) : mTempo( 60*1000000 / BeatsPerMinute ) { add_event( 0, new TempoEvent( mTempo ) ); }
   void Recorder::event_received( const Event& Ev ) {

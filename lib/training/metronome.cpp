@@ -1,6 +1,8 @@
 #include <midi/midi_events.hpp>
+#include "midi/midi_utility.hpp"
 #include "metronome.hpp"
 #include <unistd.h>
+using std::cout;
 using std::cerr;
 using std::endl;
 
@@ -53,9 +55,21 @@ namespace MuTraTrain {
     }
   } // tiemr( int, int64_t, int64_t )
 
+#define MUTRA_DEBUG
+  void NoteTrainer::new_note() {
+    mTargetNote = mLowNote + random() % (mHighNote-mLowNote+1);
+#ifdef MUTRA_DEBUG
+    cout << "Play note: " << MuTraMIDI::note_name( mTargetNote ) << " (" << mTargetNote << ") " << endl;
+#endif // MUTRA_DEBUG
+    mSeq.note_on( 0, mTargetNote, 100 );
+  } // new_note()
   void NoteTrainer::event_received( const Event& Ev ) {
     if( Ev.status() == Event::NoteOff || ( Ev.status() == Event::NoteOn && static_cast<const NoteEvent&>(Ev).velocity() == 0 ) ) {
-      if( static_cast<const NoteEvent&>(Ev).note() == mTargetNote ) {
+      int ReceivedNote = static_cast<const NoteEvent&>(Ev).note();
+#ifdef MUTRA_DEBUG
+      cout << "Received note: " << MuTraMIDI::note_name( ReceivedNote ) << " (" << ReceivedNote << ")" << endl;
+#endif // MUTRA_DEBUG
+      if( ReceivedNote == mTargetNote ) {
 	mSeq.note_on( 9, mRightSignal, 80 );
 	sleep( 1 );
 	new_note();

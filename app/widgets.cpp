@@ -13,6 +13,7 @@
 #include "forms/ui_metronome_settings.h"
 #include "forms/ui_devices_settings.h"
 #include "forms/ui_exercise_settings.h"
+#include "forms/ui_notes_exercise_settings.h"
 #include "forms/ui_midi_mixer.h"
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::InputDevice;
@@ -20,11 +21,14 @@ using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::NoteEvent;
 using MuTraMIDI::InputConnector;
+using MuTraMIDI::Names;
 using MuTraTrain::MetronomeOptions;
 using MuTraTrain::ExerciseSequence;
+using MuTraTrain::NoteTrainer;
 using MuTraTrain::Lesson;
 using std::vector;
 using std::string;
+using std::swap;
 
 namespace MuTraWidgets {
   void load_from_settings( SystemOptions& Options ) {
@@ -180,7 +184,8 @@ namespace MuTraWidgets {
     return setData( Index, Value, Role );
   } // setData( const QModelIndex&, const QVariant&, int )
   
-  SettingsDialog::SettingsDialog( QWidget* Parent ) : QDialog( Parent ), mOriginalTempo( 120 ), mMetronomePage( nullptr ), mDevicesPage( nullptr ), mExercisePage( nullptr ) {
+  SettingsDialog::SettingsDialog( QWidget* Parent )
+    : QDialog( Parent ), mOriginalTempo( 120 ), mNoteLow( 36 ), mNoteHigh( 96 ), mMetronomePage( nullptr ), mDevicesPage( nullptr ), mExercisePage( nullptr ) {
     mDlg = new Ui::SettingsDialog;
     mDlg->setupUi( this );
     //! \todo Move the dialogs to separate objects.
@@ -205,6 +210,26 @@ namespace MuTraWidgets {
     mExercisePage->Tracks->setModel( new TracksChannelsModel( mExercisePage->Tracks ) );
     mDlg->SettingsTabs->addTab( Page, tr( "Exercise" ) );
     connect( mExercisePage->TempoPercent, SIGNAL( valueChanged( int ) ), SLOT( tempo_skew_changed( int ) ) );
+    Page = new QWidget( this );
+    mNotesPage = new Ui::NotesExerciseSettings;
+    mNotesPage->setupUi( Page );
+    int MIDINote = 0;
+    for( int I = 0; I < 7; ++I ) {
+      mNotesPage->LowNote->addItem( QString::fromStdString( Names::note_name( I ) ), MIDINote );
+      mNotesPage->HighNote->addItem( QString::fromStdString( Names::note_name( I ) ), MIDINote );
+      ++MIDINote;
+      if( I != 2 && I != 6 ) {
+	mNotesPage->LowNote->addItem( QString::fromStdString( Names::note_name( I )+"#" ), MIDINote );
+	mNotesPage->HighNote->addItem( QString::fromStdString( Names::note_name( I )+"#" ), MIDINote );
+	++MIDINote;
+      }
+    }
+    for( int I = 0; I < 9; ++I ) {
+      mNotesPage->LowOctave->addItem( QString::fromStdString( Names::octave_name( I ) ), I );
+      mNotesPage->HighOctave->addItem( QString::fromStdString( Names::octave_name( I ) ), I );
+    }
+    notes_options( mNoteLow, mNoteHigh );
+    mDlg->SettingsTabs->addTab( Page, tr( "Notes" ) );
   } // SettingsDialog( QWidget* )
   SettingsDialog::~SettingsDialog() {
     if( mMetronomePage ) delete mMetronomePage;
@@ -247,6 +272,14 @@ namespace MuTraWidgets {
     mOriginalTempo = NewTempo;
     if( mMetronomePage ) mMetronomePage->Tempo->setValue( mOriginalTempo * ( mExercisePage ? mExercisePage->TempoPercent->value() / 100.0 : mExercise.tempo_skew() ) );
   } // original_tempo( int )
+  void SettingsDialog::notes_options( int NoteLow, int NoteHigh ) {
+    mNoteLow = NoteLow;
+    mNoteHigh = NoteHigh;
+    mNotesPage->LowNote->setCurrentIndex( mNotesPage->LowNote->findData( NoteLow % 12 ) );
+    mNotesPage->LowOctave->setCurrentIndex( NoteLow / 12 - 1 );
+    mNotesPage->HighNote->setCurrentIndex( mNotesPage->HighNote->findData( NoteHigh % 12 ) );
+    mNotesPage->HighOctave->setCurrentIndex( NoteHigh / 12 - 1 );
+  } // notes_options( int, int )
   void SettingsDialog::tempo_skew_changed( int Value ) {
     mMetronomePage->Tempo->setValue( mOriginalTempo * ( Value / 100.0 ) );
   } // tempo_skew_changed( int )
@@ -263,11 +296,15 @@ namespace MuTraWidgets {
       .note_on_low( mExercisePage->NoteOnLow->value() ).note_off_low( mExercisePage->NoteOffLow->value() ).velocity_low( mExercisePage->VelocityLow->value() );
     if( TracksChannelsModel* Mod = qobject_cast<TracksChannelsModel*>( mExercisePage->Tracks->model() ) )
       mExercise.tracks_count( Mod->tracks_count() ).tracks( Mod->tracks() ).channels( Mod->channels() );
+    mNoteLow = mNotesPage->LowNote->currentData().toInt() + (mNotesPage->LowOctave->currentData().toInt()+1) * 12;
+    mNoteHigh = mNotesPage->HighNote->currentData().toInt() + (mNotesPage->HighOctave->currentData().toInt()+1) * 12;
+    if( mNoteHigh < mNoteLow ) swap( mNoteHigh, mNoteLow );
 #ifdef MUTRA_DEBUG
     qDebug() << "Settings accepted:\nMetronome\n\tMeter:" << mMetronomePage->Beats->value() << "/" << mMetronomePage->Measure->currentText() << "\tTempo" << mMetronomePage->Tempo->value()
 	     << "Power beat" << mMetronomePage->PowerNote->currentText() << "(" << mMetronomePage->PowerNote->currentData() << ") @" << mMetronomePage->PowerVelocity->value()
 	     << "Weak beat" << mMetronomePage->WeakNote->currentText() << "(" << mMetronomePage->WeakNote->currentData() << ") @" << mMetronomePage->WeakVelocity->value()
-	     << "Medium beat" << mMetronomePage->MediumNote->currentText() << "(" << mMetronomePage->MediumNote->currentData() << ") @" << mMetronomePage->MediumVelocity->value() << endl;
+	     << "Medium beat" << mMetronomePage->MediumNote->currentText() << "(" << mMetronomePage->MediumNote->currentData() << ") @" << mMetronomePage->MediumVelocity->value()
+	     << "Notes exercise" << mNoteLow << "-" << mNoteHigh << endl;
 #endif
     QDialog::accept();
   } // accept()
@@ -529,7 +566,8 @@ namespace MuTraWidgets {
   
   MainWindow::MainWindow( QWidget* Parent )
     : QMainWindow( Parent ), State( StateIdle ), mLesson( nullptr ), mStats( nullptr ), mStrike( 0 ), mExercise( nullptr ), mRetries( 3 ), mToGo( 3 ), mRec( nullptr ), mMIDI( nullptr ),
-      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr ), mPlayer( nullptr ), mDBusReply( nullptr ), mScreenSaverCookie( -1 )
+      mInput( nullptr ), mSequencer( nullptr ), mEchoConnector( nullptr ), mMetronome( nullptr ), mNoteTrainer( nullptr ), mNoteLow( 36 ), mNoteHigh( 96 ), mPlayer( nullptr ), mDBusReply( nullptr ),
+      mScreenSaverCookie( -1 )
   {
     mUI = new Ui::MainWindow;
     mUI->setupUi( this );
@@ -558,6 +596,7 @@ namespace MuTraWidgets {
     connect( mUI->ActionMetronome, SIGNAL( triggered( bool ) ), SLOT( toggle_metronome( bool ) ) );
     ExerciseBar->addAction( mUI->ActionExercise );
     connect( mUI->ActionExercise, SIGNAL( triggered( bool ) ), SLOT( toggle_exercise( bool ) ) );
+    connect( mUI->ActionPlayNotes, SIGNAL( triggered( bool ) ), SLOT( toggle_notes_training( bool ) ) );
     SystemOptions SysOp = Application::get()->system_options();
     if( mSequencer = Sequencer::get_instance( SysOp.midi_output() ) ) {
       qDebug() << "Sequencer created.";
@@ -763,6 +802,7 @@ namespace MuTraWidgets {
       Dlg.exercise( *mExercise );
       Dlg.original_tempo( 60000000 / mExercise->original_tempo() );
     }
+    Dlg.notes_options( mNoteLow, mNoteHigh );
     if( Dlg.exec() ) {
       if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
 	mMetronome->options( Dlg.metronome() );
@@ -770,6 +810,8 @@ namespace MuTraWidgets {
       if( !mMIDI ) Application::get()->metronome_options( Dlg.metronome() );
       if( mExercise && Dlg.exercise().set_to( *mExercise ) ) update_piano_roll();
       Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
+      mNoteLow = Dlg.note_low();
+      mNoteHigh = Dlg.note_high();
     }
   } // edit_options()
   void MainWindow::midi_mixer() {
@@ -833,6 +875,23 @@ namespace MuTraWidgets {
     }
     update_buttons();
   } // toggle_exercise( bool )
+  void MainWindow::toggle_notes_training( bool On ) {
+    if( On ) {
+      if( mNoteTrainer || !mInput || !mSequencer ) return;
+      mNoteTrainer = new NoteTrainer( *mSequencer, mNoteLow, mNoteHigh );
+      mInput->add_client( *mNoteTrainer );
+      if( !mEchoConnector ) mInput->start();
+    }
+    else {
+      if( !mNoteTrainer ) return;
+      if( mInput ) {
+	mInput->remove_client( *mNoteTrainer );
+	if( !mEchoConnector ) mInput->stop();
+      }
+      delete mNoteTrainer;
+      mNoteTrainer = nullptr;
+    }
+  } // toggle_notes_training( bool )
   void MainWindow::timer() { //! \todo Sync with metronome, not just a timer.
     if( !mExercise ) {
       mTimer.stop();

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>NotesExerciseSettings</class>
+ <widget class="QWidget" name="NotesExerciseSettings">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>504</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Notes exercise</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,1">
+   <item row="0" column="2">
+    <widget class="QComboBox" name="HighOctave"/>
+   </item>
+   <item row="1" column="2">
+    <widget class="QComboBox" name="LowOctave"/>
+   </item>
+   <item row="0" column="1">
+    <widget class="QComboBox" name="HighNote">
+     <property name="maxVisibleItems">
+      <number>12</number>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QComboBox" name="LowNote">
+     <property name="maxVisibleItems">
+      <number>12</number>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="HighLabel">
+     <property name="text">
+      <string>Highest note</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="LowLabel">
+     <property name="text">
+      <string>Lowest note</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="3">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

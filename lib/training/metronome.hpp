@@ -96,10 +96,7 @@ namespace MuTraTrain {
   class NoteTrainer : public MuTraMIDI::InputDevice::Client {
   public:
     NoteTrainer( MuTraMIDI::Sequencer& Seq, int Low = 36, int High = 96 ) : mSeq( Seq ), mLowNote( Low ), mHighNote( High ), mRightSignal( 74 ), mWrongSignal( 78 ) { new_note(); }
-    void new_note() {
-      mTargetNote = mLowNote + random() % (mHighNote-mLowNote+1);
-      mSeq.note_on( 0, mTargetNote, 100 );
-    } // new_note()
+    void new_note();
     void event_received( const MuTraMIDI::Event& Ev );
   private:
     MuTraMIDI::Sequencer& mSeq;

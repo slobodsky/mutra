@@ -19,6 +19,7 @@ namespace Ui {
   class DevicesSettings;
   class MetronomeSettings;
   class ExerciseSettings;
+  class NotesExerciseSettings;
   class SettingsDialog;
   class MIDIMixer;
 } // Ui
@@ -131,6 +132,9 @@ namespace MuTraWidgets {
     void exercise( const ExerciseOptions& Ex );
     int opriginal_tempo() const { return mOriginalTempo; }
     void original_tempo( int NewTempo );
+    void notes_options( int NoteLow, int NoteHigh );
+    int note_low() const { return mNoteLow; }
+    int note_high() const { return mNoteHigh; }
   public slots:
     void tempo_skew_changed( int Value );
     void accept();
@@ -139,10 +143,13 @@ namespace MuTraWidgets {
     MuTraTrain::MetronomeOptions mMetronome;
     ExerciseOptions mExercise;
     int mOriginalTempo;
+    int mNoteLow;
+    int mNoteHigh;
     Ui::SettingsDialog* mDlg;
     Ui::DevicesSettings* mDevicesPage;
     Ui::MetronomeSettings* mMetronomePage;
     Ui::ExerciseSettings* mExercisePage;
+    Ui::NotesExerciseSettings* mNotesPage;
   }; // SettingsDialog
   //! \todo Consider make it just a widget.
   class MIDIMixer : public QDialog {
@@ -200,6 +207,7 @@ namespace MuTraWidgets {
     void toggle_playback( bool On );
     void toggle_record( bool On );
     void toggle_exercise( bool On );
+    void toggle_notes_training( bool On );
     bool close_file();
     void timer();
   private slots:
@@ -226,6 +234,9 @@ namespace MuTraWidgets {
     MuTraMIDI::Sequencer* mSequencer;
     MuTraMIDI::InputConnector* mEchoConnector;
     MuTraTrain::Metronome* mMetronome;
+    MuTraTrain::NoteTrainer* mNoteTrainer;
+    int mNoteHigh;
+    int mNoteLow;
     Player* mPlayer;
     Ui::MainWindow* mUI;
     QDBusPendingCallWatcher* mDBusReply;

@@ -103,7 +103,7 @@ namespace MuTraMIDI {
     }
     return Written;
   } // write( ostream&, unsigned ) const
-#define MUTRA_DEBUG
+
   MIDISequence::MIDISequence( string FileName ) : Low( 128 ), High( 0 )
   {
     ifstream File( FileName.c_str(), ios::in | ios::binary );

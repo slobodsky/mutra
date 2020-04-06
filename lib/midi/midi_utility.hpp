@@ -3,6 +3,17 @@
 #include <midi/midi_files.hpp>
 namespace MuTraMIDI {
   std::string note_name( int Note );
+  class Names {
+  public:
+    //! \note Notes are from 0 (C) to 6 (B (or H in some notations))
+    static std::string note_letter( int Note );
+    static std::string note_name( int Note );
+    static std::string octave_name( int Octava );
+  private:
+    static std::string sNoteLetters[];
+    static std::string sNoteNames[];
+    static std::string sOctaveNames[];
+  }; // Names
 
   class EventsPrinter : public InputDevice::Client {
   public:
