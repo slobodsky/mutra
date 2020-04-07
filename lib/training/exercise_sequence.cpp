@@ -38,6 +38,7 @@ namespace MuTraTrain {
 	Play = new MIDISequence( Name );
 	start();
 	Play->play( *this );
+	adjust_length();
 #ifdef SHOW_WINDOWS_TAILS
 	Stats.clear();
 	if( Les )
@@ -98,7 +99,8 @@ namespace MuTraTrain {
   } // meter( int, int )
   void ExerciseSequence::add_original_event( Event* NewEvent )
   {
-    int ClockFromStart = Clock - StartPoint;
+    int OriginalAlignment = StartPoint % int( Numerator * division() / (( 1 << Denominator ) / 4 ) );
+    int ClockFromStart = Clock - StartPoint + OriginalAlignment;
     if( Tracks.empty() ) add_track();
 #ifdef MUTRA_DEBUG
     cout << "O: ";
@@ -129,10 +131,20 @@ namespace MuTraTrain {
   } // add_original_event( Event* )
   void ExerciseSequence::add_played_event( Event* NewEvent ) {
     Event::TimeuS EvClock = NewEvent->time() * division() / tempo();
-    if( PlayedStart < 0 ) {
+    if( PlayedStartuS <= 0 ) {
       if( NewEvent->status() == ChannelEvent::NoteOn ) {
-	PlayedStart = EvClock;
 	PlayedStartuS = get_time_us();
+	PlayedStart = EvClock;
+	if( align_start() > 0 ) { //! \todo Make this ugly code clean.
+	  int BaruS = int( tempo() / ( 4.0 / ( 1 << Denominator ) ) );
+	  int Offset = ( PlayedStartuS - align_start() ) % BaruS;
+	  int OriginalToBar = OriginalStart % int( division() / ( 4.0 / ( 1 << Denominator ) ) ); //!< \todo Сделать функции для подсчёта микросекунд и MIDI-клоков в доле и такте.
+	  Offset -= OriginalToBar * tempo() / division();
+	  if( Offset > BaruS / 2 ) Offset -= BaruS;
+	  cout << "Align to " << Offset << " µs, PlayedStart " << PlayedStartuS << " align: " << align_start() << " tempo: " << tempo() << " diff: " << PlayedStartuS - align_start() << endl;
+	  PlayedStartuS -= Offset;
+	  PlayedStart -= Offset * division() / tempo();
+	}
       }
       else return; // throw away events before start
     }
@@ -150,25 +162,23 @@ namespace MuTraTrain {
     Ev.print( std::cout );
     std::cout << std::endl;
 #endif
-    if( Ev.status() == ChannelEvent::NoteOn || ( Ev.status() == ChannelEvent::NoteOff && PlayedStart >= 0 ) )
+    if( Ev.status() == ChannelEvent::NoteOn || ( Ev.status() == ChannelEvent::NoteOff && PlayedStartuS > 0 ) )
       add_played_event( Ev.clone() );
   } // event_received( const Event& )
-
+#define MUTRA_DEBUG
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
-    if( PlayedStart < 0 ) return false;
-    unsigned Clocks = static_cast<unsigned>( ( (Time-PlayedStartuS) * division() ) / tempo() );
+    if( PlayedStartuS <= 0 ) return false;
+    int Clocks = static_cast<int>( ( (Time-PlayedStartuS) * division() ) / tempo() );
 #ifdef MUTRA_DEBUG
     cout << "Beat @" << Clocks << " (" << Time << "us)";
-    if( PlayedStart >= 0 ) {
-      cout << " " << Clocks - PlayedStart << " from start (" << PlayedStart << ") & " << PlayedStart + OriginalLength - Clocks << " to end.";
-    }
+    cout << " " << Clocks - PlayedStart << " from start (" << PlayedStart << ") & " << PlayedStart + OriginalLength - Clocks << " to end.";
     cout << endl;
 #endif
     Dump << "Clocks: " << Clocks << " (" << ( Clocks % MIDISequence::Division ) << ")" << endl;
     return Clocks > OriginalLength;
   } // beat( unsigned )
-
+#undef MUTRA_DEBUG
   namespace Helpers
   {
     class NoteStopper

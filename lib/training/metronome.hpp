@@ -14,6 +14,7 @@ namespace MuTraTrain {
     Timer( Client& Cli );
     void start( int Delay );
     void stop();
+    int64_t start_time() const { return mStartTime; }
   private:
     int mCount;
     int mDelay;
@@ -84,6 +85,8 @@ namespace MuTraTrain {
     void meter( int Count = 4, int Measure = 2 ) { mOptions.beat( Count ).measure( Measure ); } // meter
     void start();
     void stop();
+    int64_t start_time() const { return mTimer.start_time(); }
+    //! \todo This is a signal from the internal timer. No one must call it. Protect it (e.g. change to lambda).
     void timer( int Count, int64_t Target, int64_t Now );
   private:
     int mTempouS; //!< Темп, как число микросекунд на четвертную ноту.

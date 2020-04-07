@@ -624,7 +624,7 @@ namespace MuTraWidgets {
   } // ~MainWindow()
 
   const int ColorsNum = 7;
-  QColor Colors[] = { QColor( 255, 255, 255, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
+  QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
 
   void MainWindow::update_buttons() { //!< \todo Implement this.
     mUI->ActionRecord->setChecked( mRec );
@@ -635,26 +635,33 @@ namespace MuTraWidgets {
       QGraphicsScene* Sc = new QGraphicsScene( View );
       Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
       if( mMIDI ) {
-	int Div = mMIDI->division();
 	int TracksCount = mMIDI->tracks().size();
 	int DrawTracks = TracksCount < 4 ? TracksCount : 4;
 	NotesListBuilder NL( TracksCount );
 	mMIDI->play( NL );
-	qreal K = Div / 32;
+	int Div = mMIDI->division() / ( 4 / ( 1 << NL.Measure ) );
+	qreal K = Div / 32.0;
 	qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
 	qreal BarH = H / DrawTracks;
+#define MUTRA_DEBUG
 #ifdef MUTRA_DEBUG
 	qDebug() << "We have" << NL.Notes.size() << "notes.";
 	for( int I = 0; I < TracksCount; ++I )
 	  qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
 #endif
+#undef MUTRA_DEBUG
 	int Finish = 0;
 	int Low = 127;
 	int High = 0;
 	for( Note N: NL.Notes ) {
-	  if( N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] > Finish ) Finish = N.mStop - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ];
+	  if( N.mStop /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/ > Finish ) Finish = N.mStop/* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/;
 	  if( N.mValue < Low ) Low = N.mValue;
 	  if( N.mValue > High ) High = N.mValue;
+	}
+	{
+	  int BarLength = Div * NL.Beats;
+	  int LengthAlign = Finish % BarLength;
+	  if( LengthAlign > 0 ) Finish += BarLength - LengthAlign;
 	}
 	int Bottom = 0;
 	if( High > Low ) {
@@ -683,7 +690,7 @@ namespace MuTraWidgets {
 	    if( TrackPlace <= 0 ) continue;
 	  QColor Clr = Colors[ TrackPlace % ColorsNum ];
 	  Clr.setAlphaF( N.mVelocity / 127.0 );
-	  int Start = (N.mStart - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]) / K;
+	  int Start = (N.mStart /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] */) / K;
 	  int Stop = (N.mStop < 0 ? Div : N.mStop-N.mStart) / K;
 	  Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
 	  if( N.mTrack == 0 || N.mTrack == TracksCount-1 ) {
@@ -915,9 +922,6 @@ namespace MuTraWidgets {
 
   void MainWindow::start_exercise() {
     if( !mExercise ) return;
-    mInput->add_client( *mExercise );
-    mExercise->new_take();
-    mExercise->start();
     //! \todo Move to some special object with platform independent call like enableScreenSaver( true/false )
     QDBusMessage Call = QDBusMessage::createMethodCall( "org.freedesktop.ScreenSaver", "/ScreenSaver", QString(), "Inhibit" );
     Call.setArguments( QList<QVariant>() << QString( "MusicTrainer" ) << QString( "Exercise" ) );
@@ -935,11 +939,17 @@ namespace MuTraWidgets {
 								 mDBusReply = nullptr;
 							       }
 							     } );
-    if( !mEchoConnector ) mInput->start();
+    mInput->add_client( *mExercise );
+    mExercise->new_take();
+    mExercise->start();
     if( mMetronome ) {
+#ifdef MUTRA_DEBUG
       qDebug() << "Start metronome" << mMetronome->options().beat() << "/" << (1<<mMetronome->options().measure()) << "tempo:" << (60000000/mMetronome->tempo()) << "bpm" << mMetronome->tempo() << "uspq";
+#endif // MUTRA_DEBUG
       mMetronome->start();
+      mExercise->align_start( mMetronome->start_time() );
     }
+    if( !mEchoConnector ) mInput->start();
     mTimer.start( (mExercise->tempo() * mMetronome->options().beat()) / 1000 );
   } // start_exercise()
   bool MainWindow::complete_exercise() {
