@@ -2,6 +2,7 @@
 #define MUTRA_WIDGETS_HPP
 #include <QApplication>
 #include <QMainWindow>
+#include <QGraphicsView>
 #include <QDialog>
 #include <QSlider>
 #include <QSpinBox>
@@ -95,6 +96,13 @@ namespace MuTraWidgets {
     ExerciseOptions mExerciseOptions;
   }; // Application
 
+  class PianoRoll : public QGraphicsView {
+    Q_OBJECT
+  public:
+    PianoRoll( QWidget* Parent = nullptr );
+    void update_piano_roll( MuTraMIDI::MIDISequence* Sequence = nullptr );
+  }; // PianoRoll
+  
   class TracksChannelsModel : public QAbstractListModel {
     Q_OBJECT
   public:

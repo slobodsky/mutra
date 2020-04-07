@@ -1,7 +1,6 @@
 #include <QSettings>
 #include <QFileDialog>
 #include <QToolBar>
-#include <QGraphicsView>
 #include <QMessageBox>
 #include <QDBusConnection>
 #include <QDBusPendingReply>
@@ -121,6 +120,139 @@ namespace MuTraWidgets {
     Set.setValue( "Exercise/Duration", Options.fragment_duration() );
   } // save_to_settings()
 
+  struct Note {
+    Note( int Value, int Velocity = 127, int Start = 0, int Stop = -1, int Channel = 0, int Track = 0 )
+      : mValue( Value ), mVelocity( Velocity ), mStart( Start ), mStop( Stop ), mChannel( Channel ), mTrack( Track ) {}
+    int mValue;
+    int mStart;
+    int mStop;
+    int mChannel;
+    int mTrack;
+    int mVelocity;
+    bool operator<( const Note& Other ) const {
+      if( mStart < Other.mStart ) return true;
+      if( mStart > Other.mStart ) return false;
+      if( mStop < Other.mStop ) return true;
+      if( mStop > Other.mStop ) return false;
+      return mTrack < Other.mTrack;
+    }
+  }; // Note
+
+  class NotesListBuilder : public Sequencer {
+  public:
+    NotesListBuilder( int TracksNum = 1 ) : Delays( nullptr ) {
+      Delays = new int[ TracksNum ]; // The number must be correct or this will crush. Maybe use vecror & resize it?
+      for( int I = 0; I < TracksNum; ++I ) Delays[ I ] = -1;
+    }
+    ~NotesListBuilder() { if( Delays ) delete [] Delays; }
+    void note_on( int Channel, int Value, int Velocity ) {
+      if( Velocity == 0 ) note_off( Channel, Value, Velocity );
+      else {
+#ifdef MUTRA_DEBUG
+	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
+#endif
+	if( Delays[ Track ] < 0 ) Delays[ Track ] = Clock;
+	Notes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
+      }
+    }
+    void note_off( int Channel, int Value, int Velocity ) {
+      for( auto It = Notes.rbegin(); It != Notes.rend(); ++It )
+	if( It->mValue == Value && It->mChannel == Channel && It->mTrack == Track && It->mStop < 0 && It->mStart <= Clock ) {
+	  It->mStop = Clock;
+	  return;
+	}
+      qDebug() << "Note" << Value << "in channel" << Channel << "not found for stop @" << Clock;
+    }
+    void meter( int Numerator, int Denominator ) {
+#ifdef MUTRA_DEBUG
+      qDebug() << "Metar: " << Numerator << "/" << Denominator << endl;
+#endif
+      Beats = Numerator;
+      Measure = Denominator;
+    } // meter( int, int )
+    void start() { Time = 0; Clock = 0; }
+    void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock * tempo(); }
+    vector<Note> Notes;
+    int* Delays;
+
+    int Beats;
+    int Measure;
+  }; // NotesListBuilder
+
+  //! \todo Move these globals into PianoRoll etc.
+  const int ColorsNum = 7;
+  QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
+
+  PianoRoll::PianoRoll( QWidget* Parent ) : QGraphicsView( Parent ) {} // PianoRoll( QWidget* )
+  void PianoRoll::update_piano_roll( MIDISequence* Sequence ) {
+    QGraphicsScene* Sc = new QGraphicsScene( this );
+    Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
+    if( Sequence ) {
+      int TracksCount = Sequence->tracks_num();
+      int DrawTracks = TracksCount < 4 ? TracksCount : 4;
+      NotesListBuilder NL( TracksCount );
+      Sequence->play( NL );
+      int Div = Sequence->division() / ( 4 / ( 1 << NL.Measure ) );
+      qreal K = Div / 32.0;
+      qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
+      qreal BarH = H / DrawTracks;
+#ifdef MUTRA_DEBUG
+      qDebug() << "We have" << NL.Notes.size() << "notes.";
+      for( int I = 0; I < TracksCount; ++I )
+	qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
+#endif
+      int Finish = 0;
+      int Low = 127;
+      int High = 0;
+      for( Note N: NL.Notes ) {
+	if( N.mStop /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/ > Finish ) Finish = N.mStop/* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/;
+	if( N.mValue < Low ) Low = N.mValue;
+	if( N.mValue > High ) High = N.mValue;
+      }
+      {
+	int BarLength = Div * NL.Beats;
+	int LengthAlign = Finish % BarLength;
+	if( LengthAlign > 0 ) Finish += BarLength - LengthAlign;
+      }
+      int Bottom = 0;
+      if( High > Low ) {
+	int Top = ( 60-High ) * H;
+	Bottom = ( 60-Low+1 ) * H;
+	int Beat = 0;
+	for( int X = 0; X < Finish; X += Div ) {
+	  QPen Pen;
+	  if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
+	  ++Beat;
+	  Sc->addLine( X / K, Top, X /K, Bottom, Pen );
+	}
+	for( int Y = Top; Y <= Bottom; Y += H )
+	  Sc->addLine( 0, Y, Finish / K, Y );
+	for( int Y = Bottom + 16; Y < Bottom + 16 + 127; Y += 16 )
+	  Sc->addLine( 0, Y, Finish / K, Y );
+	Sc->addLine( 0, Bottom + 16 + 127, Finish / K, Bottom + 16 + 127 );
+      }
+      for( Note N: NL.Notes ) {
+#ifdef MUTRA_DEBUG
+	qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
+#endif
+	int TrackPlace = N.mTrack - (TracksCount-DrawTracks);
+	if( N.mTrack == 0 ) TrackPlace = 0;
+	else
+	  if( TrackPlace <= 0 ) continue;
+	QColor Clr = Colors[ TrackPlace % ColorsNum ];
+	Clr.setAlphaF( N.mVelocity / 127.0 );
+	int Start = (N.mStart /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] */) / K;
+	int Stop = (N.mStop < 0 ? Div : N.mStop-N.mStart) / K;
+	Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
+	if( N.mTrack == 0 || N.mTrack == TracksCount-1 ) {
+	  Sc->addRect( Start, Bottom + H + 127 - N.mVelocity, Stop, N.mVelocity, QPen( N.mTrack == 0 ? Qt::gray : Qt::cyan ),
+		       QBrush( N.mTrack == 0 ? QColor( 0, 255, 80, 32 ) : QColor( 0, 80, 255, 32 ) ) );
+	}
+      }
+    }
+    setScene( Sc );
+  } // update_piano_roll( MIDISequence* ) 
+  
   TracksChannelsModel& TracksChannelsModel::tracks_count( int NewCount ) {
     mTracksCount = NewCount < 0 ? 0 : NewCount > 16 ? 16 : NewCount;
     return *this;
@@ -345,65 +477,6 @@ namespace MuTraWidgets {
     if( mSequencer ) mSequencer->control_change( Channel, 10, Value );
   } // pan_changed( int, int )
   
-  struct Note {
-    Note( int Value, int Velocity = 127, int Start = 0, int Stop = -1, int Channel = 0, int Track = 0 )
-      : mValue( Value ), mVelocity( Velocity ), mStart( Start ), mStop( Stop ), mChannel( Channel ), mTrack( Track ) {}
-    int mValue;
-    int mStart;
-    int mStop;
-    int mChannel;
-    int mTrack;
-    int mVelocity;
-    bool operator<( const Note& Other ) const {
-      if( mStart < Other.mStart ) return true;
-      if( mStart > Other.mStart ) return false;
-      if( mStop < Other.mStop ) return true;
-      if( mStop > Other.mStop ) return false;
-      return mTrack < Other.mTrack;
-    }
-  }; // Note
-
-  class NotesListBuilder : public Sequencer {
-  public:
-    NotesListBuilder( int TracksNum = 1 ) : Delays( nullptr ) {
-      Delays = new int[ TracksNum ]; // The number must be correct or this will crush. Maybe use vecror & resize it?
-      for( int I = 0; I < TracksNum; ++I ) Delays[ I ] = -1;
-    }
-    ~NotesListBuilder() { if( Delays ) delete [] Delays; }
-    void note_on( int Channel, int Value, int Velocity ) {
-      if( Velocity == 0 ) note_off( Channel, Value, Velocity );
-      else {
-#ifdef MUTRA_DEBUG
-	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
-#endif
-	if( Delays[ Track ] < 0 ) Delays[ Track ] = Clock;
-	Notes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
-      }
-    }
-    void note_off( int Channel, int Value, int Velocity ) {
-      for( auto It = Notes.rbegin(); It != Notes.rend(); ++It )
-	if( It->mValue == Value && It->mChannel == Channel && It->mTrack == Track && It->mStop < 0 && It->mStart <= Clock ) {
-	  It->mStop = Clock;
-	  return;
-	}
-      qDebug() << "Note" << Value << "in channel" << Channel << "not found for stop @" << Clock;
-    }
-    void meter( int Numerator, int Denominator ) {
-#ifdef MUTRA_DEBUG
-      qDebug() << "Metar: " << Numerator << "/" << Denominator << endl;
-#endif
-      Beats = Numerator;
-      Measure = Denominator;
-    } // meter( int, int )
-    void start() { Time = 0; Clock = 0; }
-    void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock * tempo(); }
-    vector<Note> Notes;
-    int* Delays;
-
-    int Beats;
-    int Measure;
-  }; // NotesListBuilder
-
   class StatisticsModel : public QAbstractItemModel {
   public:
     StatisticsModel( QObject* Parent = nullptr ) : QAbstractItemModel( Parent ), mLesson( nullptr ) {} // StatisticsModel( QObject* )
@@ -586,7 +659,7 @@ namespace MuTraWidgets {
     connect( mUI->ActionMIDImixer, SIGNAL( triggered() ), SLOT( midi_mixer() ) );
     mUI->ActionQuit->setShortcut( QKeySequence::Quit );
     qApp->connect( mUI->ActionQuit, SIGNAL( triggered() ), SLOT( quit() ) );
-    setCentralWidget( new QGraphicsView( this ) );
+    setCentralWidget( new PianoRoll( this ) );
     QToolBar* ExerciseBar = addToolBar( tr( "Exercise" ) );
     ExerciseBar->addAction( mUI->ActionPlay );
     connect( mUI->ActionPlay, SIGNAL( triggered( bool ) ), SLOT( toggle_playback( bool ) ) );
@@ -623,84 +696,12 @@ namespace MuTraWidgets {
     if( mUI ) delete mUI;
   } // ~MainWindow()
 
-  const int ColorsNum = 7;
-  QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
-
   void MainWindow::update_buttons() { //!< \todo Implement this.
     mUI->ActionRecord->setChecked( mRec );
     mUI->ActionExercise->setEnabled( mExercise );
   } // update_buttons()
   void MainWindow::update_piano_roll() {
-    if( QGraphicsView* View = qobject_cast<QGraphicsView*>( centralWidget() ) ) {
-      QGraphicsScene* Sc = new QGraphicsScene( View );
-      Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
-      if( mMIDI ) {
-	int TracksCount = mMIDI->tracks().size();
-	int DrawTracks = TracksCount < 4 ? TracksCount : 4;
-	NotesListBuilder NL( TracksCount );
-	mMIDI->play( NL );
-	int Div = mMIDI->division() / ( 4 / ( 1 << NL.Measure ) );
-	qreal K = Div / 32.0;
-	qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
-	qreal BarH = H / DrawTracks;
-#define MUTRA_DEBUG
-#ifdef MUTRA_DEBUG
-	qDebug() << "We have" << NL.Notes.size() << "notes.";
-	for( int I = 0; I < TracksCount; ++I )
-	  qDebug() << "Track" << I << "delay" << NL.Delays[ I ];
-#endif
-#undef MUTRA_DEBUG
-	int Finish = 0;
-	int Low = 127;
-	int High = 0;
-	for( Note N: NL.Notes ) {
-	  if( N.mStop /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/ > Finish ) Finish = N.mStop/* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ]*/;
-	  if( N.mValue < Low ) Low = N.mValue;
-	  if( N.mValue > High ) High = N.mValue;
-	}
-	{
-	  int BarLength = Div * NL.Beats;
-	  int LengthAlign = Finish % BarLength;
-	  if( LengthAlign > 0 ) Finish += BarLength - LengthAlign;
-	}
-	int Bottom = 0;
-	if( High > Low ) {
-	  int Top = ( 60-High ) * H;
-	  Bottom = ( 60-Low+1 ) * H;
-	  int Beat = 0;
-	  for( int X = 0; X < Finish; X += Div ) {
-	    QPen Pen;
-	    if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
-	    ++Beat;
-	    Sc->addLine( X / K, Top, X /K, Bottom, Pen );
-	  }
-	  for( int Y = Top; Y <= Bottom; Y += H )
-	    Sc->addLine( 0, Y, Finish / K, Y );
-	  for( int Y = Bottom + 16; Y < Bottom + 16 + 127; Y += 16 )
-	    Sc->addLine( 0, Y, Finish / K, Y );
-	  Sc->addLine( 0, Bottom + 16 + 127, Finish / K, Bottom + 16 + 127 );
-	}
-	for( Note N: NL.Notes ) {
-#ifdef MUTRA_DEBUG
-	  qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
-#endif
-	  int TrackPlace = N.mTrack - (TracksCount-DrawTracks);
-	  if( N.mTrack == 0 ) TrackPlace = 0;
-	  else
-	    if( TrackPlace <= 0 ) continue;
-	  QColor Clr = Colors[ TrackPlace % ColorsNum ];
-	  Clr.setAlphaF( N.mVelocity / 127.0 );
-	  int Start = (N.mStart /* - NL.Delays[ N.mTrack ] + NL.Delays[ 0 ] */) / K;
-	  int Stop = (N.mStop < 0 ? Div : N.mStop-N.mStart) / K;
-	  Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
-	  if( N.mTrack == 0 || N.mTrack == TracksCount-1 ) {
-	    Sc->addRect( Start, Bottom + H + 127 - N.mVelocity, Stop, N.mVelocity, QPen( N.mTrack == 0 ? Qt::gray : Qt::cyan ),
-			 QBrush( N.mTrack == 0 ? QColor( 0, 255, 80, 32 ) : QColor( 0, 80, 255, 32 ) ) );
-	  }
-	}
-      }
-      View->setScene( Sc );
-    }
+    if( PianoRoll* View = qobject_cast<PianoRoll*>( centralWidget() ) ) View->update_piano_roll( mMIDI );
   } // update_piano_roll()
   
   void MainWindow::open_file() {
