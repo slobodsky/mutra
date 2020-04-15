@@ -207,7 +207,7 @@ namespace MuTraMIDI {
 
   void MIDISequence::add_track() {
     ++TracksNum;
-    if( TracksNum > 1 && Type == 0 ) Type = 2;
+    if( TracksNum > 1 && Type == 0 ) Type = 1; // 2; - Maybe this is more correct, but not every program understand this.
     if( Tracks.size() > 0 ) Tracks.back()->close();
     Tracks.push_back( new MIDITrack );
   } // add_track()

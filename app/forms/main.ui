@@ -50,8 +50,14 @@
     <addaction name="ActionOptions"/>
     <addaction name="ActionMIDImixer"/>
    </widget>
+   <widget class="QMenu" name="ViewMenu">
+    <property name="title">
+     <string>View</string>
+    </property>
+   </widget>
    <addaction name="menuThis_is_an_application_stub"/>
    <addaction name="menuExerci_se"/>
+   <addaction name="ViewMenu"/>
    <addaction name="menu_Options"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -180,6 +186,22 @@
    </property>
    <property name="text">
     <string>Play notes</string>
+   </property>
+  </action>
+  <action name="ActionViewScores">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Scores</string>
+   </property>
+  </action>
+  <action name="ActionViewPianoRoll">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Piano roll</string>
    </property>
   </action>
  </widget>

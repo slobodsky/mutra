@@ -1,8 +1,10 @@
 #include "midi_events.hpp"
 #include "midi_utility.hpp"
+#include <algorithm>
 using std::string;
 using std::cout;
 using std::endl;
+using std::find;
 
 namespace MuTraMIDI {
   string note_name( int Note ) {
@@ -40,7 +42,48 @@ namespace MuTraMIDI {
   } // event_received( const Event& )
   void Recorder::meter( int Numerator, int Denominator ) { add_event( 0, new TimeSignatureEvent( Numerator, Denominator ) ); } // meter( int, int )
   void InputConnector::event_received( const Event& Ev ) { if( mOutput ) Ev.play( *mOutput ); }
-  
+
+  InputFilter::~InputFilter() {
+    while( mClients.size() > 0 ) remove_client( *mClients.front() );
+    if( mInput ) mInput->remove_client( *this );
+  } // ~InputFilter()
+  void InputFilter::event_received( const Event& Ev ) { for( int I = 0; I < mClients.size(); ++I ) if( mClients[ I ] ) mClients[ I ]->event_received( Ev ); }
+  void InputFilter::connected( InputDevice& Dev ) {
+    if( !mInput ) mInput = &Dev;
+    for( int I = 0; I < mClients.size(); ++I ) if( mClients[ I ] ) mClients[ I ]->connected( Dev );
+  } // connected( InputDevice& )
+  void InputFilter::disconnected( InputDevice& Dev ) {
+    if( mInput == &Dev ) mInput = nullptr;
+    for( int I = 0; I < mClients.size(); ++I ) if( mClients[ I ] ) mClients[ I ]->disconnected( Dev );
+  } // disconnected( InputDevice& )
+  void InputFilter::started( InputDevice& Dev ) { for( int I = 0; I < mClients.size(); ++I ) if( mClients[ I ] ) mClients[ I ]->started( Dev ); }
+  void InputFilter::stopped( InputDevice& Dev ) { for( int I = 0; I < mClients.size(); ++I ) if( mClients[ I ] ) mClients[ I ]->stopped( Dev ); }
+  void InputFilter::add_client( InputDevice::Client& Cli ) {
+    if( find( mClients.begin(), mClients.end(), &Cli ) == mClients.end() ) {
+      mClients.push_back( &Cli );
+      if( mInput ) Cli.connected( *mInput );
+    }
+  } // add_client( Client& )
+  void InputFilter::remove_client( InputDevice::Client& Cli ) {
+    auto It = find( mClients.begin(), mClients.end(), &Cli );
+    if( It == mClients.end() ) return;
+    mClients.erase( It );
+    if( mInput ) Cli.disconnected( *mInput );
+  } // remove_client( Client* )
+
+  void Transposer::event_received( const Event& Ev ) {
+    if( ( Ev.status() == Event::NoteOn || Ev.status() == Event::NoteOff ) && mHalfTones != 0 ) {
+      int NewNote = dynamic_cast<const NoteEvent&>( Ev ).note() + mHalfTones;
+      if( NewNote < 0 || NewNote > 127 ) return; // Discard events transposed out of MIDI notes range.
+      NoteEvent* NewEv = dynamic_cast<NoteEvent*>( Ev.clone() );
+      NewEv->note( NewNote );
+      InputFilter::event_received( *NewEv );
+      delete NewEv;
+    }
+    else
+      InputFilter::event_received( Ev );
+  } // event_received( const Event& )
+
   void MultiSequencer::add( Sequencer* Seq ) { Clients.push_back( Seq ); }
   void MultiSequencer::remove( Sequencer* Seq ) {} //!< \todo Implement this!
   void MultiSequencer::start() { for( Sequencer* Client : Clients ) Client->start(); }

@@ -6,28 +6,25 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>513</width>
+    <width>389</width>
     <height>259</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Devices</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1">
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,1">
+   <item row="1" column="0">
+    <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>&amp;Input</string>
+      <string>&amp;Output</string>
      </property>
      <property name="buddy">
-      <cstring>MIDIInput</cstring>
+      <cstring>MIDIOutput</cstring>
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QComboBox" name="MIDIOutput"/>
-   </item>
-   <item row="2" column="0" colspan="2">
+   <item row="2" column="0">
     <widget class="QCheckBox" name="MIDIEcho">
      <property name="enabled">
       <bool>true</bool>
@@ -40,20 +37,52 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="label_2">
+   <item row="0" column="0">
+    <widget class="QLabel" name="label">
      <property name="text">
-      <string>&amp;Output</string>
+      <string>&amp;Input</string>
      </property>
      <property name="buddy">
-      <cstring>MIDIOutput</cstring>
+      <cstring>MIDIInput</cstring>
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
+   <item row="2" column="1">
+    <widget class="QCheckBox" name="Transpose">
+     <property name="toolTip">
+      <string>Transpose all notes from the input device (before echo or/and aplication)</string>
+     </property>
+     <property name="text">
+      <string>Transpose</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="2">
+    <widget class="QSpinBox" name="Halftones">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Value of the transposition in halftones (negative values make sound lower)</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="minimum">
+      <number>-127</number>
+     </property>
+     <property name="maximum">
+      <number>127</number>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1" colspan="2">
+    <widget class="QComboBox" name="MIDIOutput"/>
+   </item>
+   <item row="0" column="1" colspan="2">
     <widget class="QComboBox" name="MIDIInput"/>
    </item>
-   <item row="3" column="0" colspan="2">
+   <item row="3" column="0" colspan="3">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -69,5 +98,22 @@
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>Transpose</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>Halftones</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>115</x>
+     <y>97</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>274</x>
+     <y>97</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

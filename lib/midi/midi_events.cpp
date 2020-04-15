@@ -178,8 +178,8 @@ namespace MuTraMIDI {
 	return new TimeSignatureEvent( Numerator, Denominator, ClickClocks, ThirtySeconds );
       }
     case MetaEvent::KeySignature: { // Key signature
-        int Tonal	= Stream.get();
-	int Minor	= Stream.get();
+        int Tonal	= char( Stream.get() );
+        int Minor	= Stream.get();
 	return new KeySignatureEvent( Tonal, Minor != 0 );
       }
     default: {
@@ -326,6 +326,7 @@ namespace MuTraMIDI {
     File.put( ThirtySeconds );
     return 1 + 1 + 1 + 4;
   } // write( std::ostream& ) const
+  void KeySignatureEvent::play( Sequencer& S ) const { S.key_signature( tonal(), minor() ); }
   void KeySignatureEvent::print( ostream& Stream ) const
   {
     Stream << "Тональность " << ( minor() ? "минорная" : "мажорная" ) << ", при ключе ";

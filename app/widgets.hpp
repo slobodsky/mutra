@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QGraphicsView>
+#include <QStackedWidget>
 #include <QDialog>
 #include <QSlider>
 #include <QSpinBox>
@@ -35,10 +36,16 @@ namespace MuTraWidgets {
     SystemOptions& midi_output( const std::string& NewOutput ) { mMIDIOutput = NewOutput; return *this; }
     bool midi_echo() const { return mMIDIEcho; }
     SystemOptions& midi_echo( bool NewEcho ) { mMIDIEcho = NewEcho; return *this; }
+    bool transpose() const { return mTranspose; }
+    SystemOptions& transpose( bool NewTranspose ) { mTranspose = NewTranspose; return *this; }
+    int halftones() const { return mHalfTones; }
+    SystemOptions& halftones( int NewHalfTones ) { mHalfTones = NewHalfTones; return *this; }
   private:
     std::string mMIDIInput;
     std::string mMIDIOutput;
     bool mMIDIEcho;
+    bool mTranspose;
+    int mHalfTones;
   }; // SystemOptions
   struct ExerciseOptions {
     ExerciseOptions();
@@ -96,12 +103,18 @@ namespace MuTraWidgets {
     ExerciseOptions mExerciseOptions;
   }; // Application
 
-  class PianoRoll : public QGraphicsView {
+  class ScoresView : public QGraphicsView {
     Q_OBJECT
   public:
-    PianoRoll( QWidget* Parent = nullptr );
+    ScoresView( QWidget* Parent );
+    void update_scores( MuTraMIDI::MIDISequence* Sequence = nullptr );
+  }; // ScoresView
+  class PianoRollView : public QGraphicsView {
+    Q_OBJECT
+  public:
+    PianoRollView( QWidget* Parent = nullptr );
     void update_piano_roll( MuTraMIDI::MIDISequence* Sequence = nullptr );
-  }; // PianoRoll
+  }; // PianoRollView
   
   class TracksChannelsModel : public QAbstractListModel {
     Q_OBJECT
@@ -204,6 +217,7 @@ namespace MuTraWidgets {
     ~MainWindow();
     void stop_recording();
     void update_buttons();
+    void load_file( const QString& FileName );
   public slots:
     void update_piano_roll();
     void open_file();
@@ -221,6 +235,8 @@ namespace MuTraWidgets {
   private slots:
     void playback_complete();
   private:
+    void add_input_client( MuTraMIDI::InputDevice::Client& Cli );
+    void remove_input_client( MuTraMIDI::InputDevice::Client& Cli );
     bool load_lesson( const std::string& FileName );
     bool load_exercise( const std::string& FileName );
     void start_exercise();
@@ -240,6 +256,7 @@ namespace MuTraWidgets {
     MuTraMIDI::Recorder* mRec;
     MuTraMIDI::InputDevice* mInput;
     MuTraMIDI::Sequencer* mSequencer;
+    MuTraMIDI::Transposer* mTransposer;
     MuTraMIDI::InputConnector* mEchoConnector;
     MuTraTrain::Metronome* mMetronome;
     MuTraTrain::NoteTrainer* mNoteTrainer;
@@ -249,6 +266,9 @@ namespace MuTraWidgets {
     Ui::MainWindow* mUI;
     QDBusPendingCallWatcher* mDBusReply;
     int mScreenSaverCookie;
+    QStackedWidget* mViewStack;
+    ScoresView* mScores;
+    PianoRollView* mPianoRoll;
   }; // MainWindow
 } // MuTraWidgets
 #endif // MUTRA_WIDGETS_HPP

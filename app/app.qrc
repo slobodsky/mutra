@@ -2,5 +2,15 @@
 <qresource>
   <file>images/metronome.svg</file>
   <file>images/exercise.svg</file>
+  <file>images/g-clef.svg</file>
+  <file>images/f-clef.svg</file>
+  <file>images/flat.svg</file>
+  <file>images/sharp.svg</file>
+  <file>images/note-whole.svg</file>
+  <file>images/note-half.svg</file>
+  <file>images/note-quarter.svg</file>
+  <file>images/note-eighth.svg</file>
+  <file>images/note-sixteenth.svg</file>
+  <file>images/note-thirtysecond.svg</file>
 </qresource>
 </RCC>

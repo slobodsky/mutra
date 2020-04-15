@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="7.0549998"
+   height="24"
+   viewBox="0 0 1.8666353 6.3500002"
+   version="1.1"
+   id="svg835"
+   inkscape:version="0.92.4 5da689c313, 2019-01-14"
+   sodipodi:docname="note-quarter.svg">
+  <defs
+     id="defs829" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="22.4"
+     inkscape:cx="4.5724709"
+     inkscape:cy="5.9781592"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     units="px"
+     inkscape:window-width="1920"
+     inkscape:window-height="1012"
+     inkscape:window-x="0"
+     inkscape:window-y="36"
+     inkscape:window-maximized="1"
+     showguides="true"
+     inkscape:guide-bbox="true">
+    <sodipodi:guide
+       position="-1.0039992,1.5875"
+       orientation="0,1"
+       id="guide1407"
+       inkscape:locked="false"
+       inkscape:label=""
+       inkscape:color="rgb(0,0,255)" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata832">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-290.64999)">
+    <g
+       aria-label="𝅘𝅥"
+       style="font-style:normal;font-weight:normal;font-size:6.23401117px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.15585026"
+       id="text1430">
+      <path
+         d="m 1.8639693,290.77843 v 5.21163 q 0,0.26806 -0.1807863,0.49872 -0.1745523,0.23066 -0.4550828,0.37404 -0.2805305,0.13715 -0.59223106,0.13715 -0.28676452,0 -0.46131683,-0.14338 Q 0,296.70697 0,296.45761 q 0,-0.19325 0.1122122,-0.37404 0.1122122,-0.18079 0.29299852,-0.32417 0.18702034,-0.14962 0.40521073,-0.23066 0.21819035,-0.0873 0.43014675,-0.0873 0.2680625,0 0.4613168,0.15585 v -4.81889 z"
+         style="stroke-width:0.15585026"
+         id="path3859" />
+    </g>
+  </g>
+</svg>

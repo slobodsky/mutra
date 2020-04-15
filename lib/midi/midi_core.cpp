@@ -146,7 +146,7 @@ namespace MuTraMIDI {
     }
   } // ~InputDevice()
   void InputDevice::add_client( Client& Cli )
-  { //! \todo Check that it's not there yet.
+  {
     if( find( Clients.begin(), Clients.end(), &Cli ) == Clients.end() ) {
       Clients.push_back( &Cli );
       Cli.connected( *this );
@@ -175,7 +175,7 @@ namespace MuTraMIDI {
     default:
       return ChannelEvent::get( Str, Count );
     }
-    cerr << "Unknown event " << hex << Status << " last count " << dec << endl;
+    cerr << "Unknown event " << hex << Status << " last count " << dec << Count << endl;
     return nullptr;
   } // get_event( InStream&, size_t& )
 } // MuTraMIDI

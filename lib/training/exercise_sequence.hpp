@@ -58,6 +58,9 @@ namespace MuTraTrain {
     // Метроном
     int Numerator;
     int Denominator;
+    // Тональность
+    int Tonal;
+    bool Minor;
 
     // Параметры? упражнения
     int StartThreshold;		// Предельное отклонение начала ноты (в единицах времени файла, MIDI-clockах)
@@ -76,8 +79,8 @@ namespace MuTraTrain {
     MuTraMIDI::Event::TimeuS AlignTimeuS;
 
     ExerciseSequence( unsigned Channels0 = 0xF, unsigned TargetTracks0 = 0xFFFF )
-      : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), StartThreshold( 45 ), StopThreshold( 45 ), VelocityThreshold( 64 ), Play( nullptr ), StartPoint( 0 ),
-	StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), PlayedStartuS( 0 ), AlignTimeuS( -1 ), Dump( "beat.dump" )
+      : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), Tonal( 0 ), Minor( false ), StartThreshold( 45 ), StopThreshold( 45 ), VelocityThreshold( 64 ),
+	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStart( -1 ), PlayedStartuS( 0 ), AlignTimeuS( -1 ), Dump( "beat.dump" )
     { Type = 1; }
     bool load( const std::string& FileName );
     const MuTraMIDI::MIDISequence* play() const { return Play; }
@@ -95,6 +98,7 @@ namespace MuTraTrain {
       MIDISequence::Division = MIDIClockForQuarter;
     }
     void meter( int N, int D );
+    void key_signature( int T, bool M ) override;
     void reset();
     void note_on( int Channel, int Note, int Velocity );
     void note_off( int Channel, int Note, int Velocity );

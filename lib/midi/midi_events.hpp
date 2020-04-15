@@ -36,7 +36,9 @@ namespace MuTraMIDI {
     static const char* Percussion[ PercussionLast-PercussionFirst+1 ];
     NoteEvent( StatusCode Status0, int Channel0, int Note0, int Velocity0, TimeuS Time0 = -1 ) : ChannelEvent( Status0, Channel0, Time0 ), Note( Note0 ), Velocity( Velocity0 ) {}
     int note() const { return Note; }
+    NoteEvent& note( int NewNote ) { Note = NewNote; return *this; }
     int velocity() const { return Velocity; }
+    NoteEvent& velocity( int NewVelocity ) { Velocity = NewVelocity; return *this; }
 
     Event* clone() const { return new NoteEvent( *this ); }
     void print( std::ostream& Stream ) const;
@@ -327,6 +329,7 @@ namespace MuTraMIDI {
     bool minor() const { return Minor; }
 
     Event* clone() const { return new KeySignatureEvent( *this ); }
+    void play( Sequencer& S ) const;
     void print( std::ostream& Stream ) const;
     int write( std::ostream& File ) const;
   }; // KeySignatureEvent

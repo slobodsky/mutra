@@ -11,6 +11,7 @@ using std::for_each;
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::Event;
 using MuTraMIDI::TimeSignatureEvent;
+using MuTraMIDI::KeySignatureEvent;
 using MuTraMIDI::ChannelEvent;
 using MuTraMIDI::NoteEvent;
 using MuTraMIDI::EventsList;
@@ -97,6 +98,10 @@ namespace MuTraTrain {
     Numerator = N;
     Denominator = D;
   } // meter( int, int )
+  void ExerciseSequence::key_signature( int T, bool M ) {
+    Tonal = T;
+    Minor = M;
+  } // key_signature( int, bool )
   void ExerciseSequence::add_original_event( Event* NewEvent )
   {
     int OriginalAlignment = StartPoint % int( Numerator * division() / (( 1 << Denominator ) / 4 ) );
@@ -117,6 +122,7 @@ namespace MuTraTrain {
 	cout << "Add time signature " << Numerator << "/" << (1 << Denominator) << endl;
 #endif
 	Tracks.front()->events().back()->add( new TimeSignatureEvent( Numerator, Denominator ) );
+	Tracks.front()->events().back()->add( new KeySignatureEvent( Tonal, Minor ) );
 	OriginalStart = ClockFromStart;
 	OriginalLength = 0;
       }
@@ -165,7 +171,6 @@ namespace MuTraTrain {
     if( Ev.status() == ChannelEvent::NoteOn || ( Ev.status() == ChannelEvent::NoteOff && PlayedStartuS > 0 ) )
       add_played_event( Ev.clone() );
   } // event_received( const Event& )
-#define MUTRA_DEBUG
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
     if( PlayedStartuS <= 0 ) return false;
@@ -178,7 +183,7 @@ namespace MuTraTrain {
     Dump << "Clocks: " << Clocks << " (" << ( Clocks % MIDISequence::Division ) << ")" << endl;
     return Clocks > OriginalLength;
   } // beat( unsigned )
-#undef MUTRA_DEBUG
+
   namespace Helpers
   {
     class NoteStopper
@@ -214,7 +219,6 @@ namespace MuTraTrain {
     public:
       NotesSequence() : Start( -1 ), Finish( 0 ) {}
       vector<ExerciseSequence::NotePlay>& notes() { return Notes; }
-
 
       void note_on( int Channel, int Note, int Velocity )
       {
