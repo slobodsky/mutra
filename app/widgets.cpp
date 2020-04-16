@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QGraphicsSvgItem>
+//#include <QGraphicsItemGroup>
 #include "widgets.hpp"
 #include <QDebug>
 #include "forms/ui_main.h"
@@ -207,10 +208,11 @@ namespace MuTraWidgets {
   const int ColorsNum = 7;
   QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
 
-  PianoRollView::PianoRollView( QWidget* Parent ) : QGraphicsView( Parent ) {} // PianoRollView( QWidget* )
+  PianoRollView::PianoRollView( QWidget* Parent ) : QGraphicsView( Parent ), Keyboard( nullptr ) {} // PianoRollView( QWidget* )
   void PianoRollView::update_piano_roll( MIDISequence* Sequence ) {
     QGraphicsScene* Sc = new QGraphicsScene( this );
     Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
+    int SceneLeft = 0;
     if( Sequence ) {
       int TracksCount = Sequence->tracks().size();
       int DrawTracks = TracksCount < 4 ? TracksCount : 4;
@@ -237,7 +239,7 @@ namespace MuTraWidgets {
 	int BarLength = Div * NL.Beats;
 	int LengthAlign = Finish % BarLength;
 	if( LengthAlign > 0 ) Finish += BarLength - LengthAlign;
-      }
+      }	   
       int Bottom = 0;
       if( High > Low ) {
 	int Top = ( 60-High ) * H;
@@ -273,9 +275,71 @@ namespace MuTraWidgets {
 		       QBrush( N.mTrack == 0 ? QColor( 0, 255, 80, 32 ) : QColor( 0, 80, 255, 32 ) ) );
 	}
       }
+      {
+	int KeyLow = 60-24; // Draw 61-key keyboard
+	int KeyHigh = 60+36;
+	int WhiteWidth = 64;
+	QPen WhitePen = QPen( Qt::gray );
+	QBrush WhiteBrush = QBrush( Qt::white );
+	int BlackWidth = 32;
+	QPen BlackPen = QPen( Qt::gray );
+	QBrush BlackBrush = QBrush( Qt::black );
+	int KeysRight = -3;
+	int KeysLeft = 0; //KeysRight - WhiteWidth;
+	SceneLeft = KeysLeft;
+	Keyboard = new QGraphicsItemGroup;
+	Sc->addItem( Keyboard );
+	Keyboard->setPos( KeysRight - WhiteWidth, 0 );
+	for( int I = KeyLow; I <= KeyHigh; ++I ) {
+	  int N = I % 12;
+	  int KeyTop = ( 60-I ) * H;
+	  qreal KeyHeight = H;
+	  QGraphicsRectItem* Key = nullptr;
+	  if( N == 4 || N == 11 || I == KeyHigh ) {
+	    if( I != KeyLow && I != KeyHigh ) KeyHeight += H / 2;
+	    Key = new QGraphicsRectItem( KeysLeft, KeyTop, WhiteWidth, KeyHeight, Keyboard );
+	    Key->setPen( WhitePen );
+	    Key->setBrush( WhiteBrush );
+	  }
+	  else {
+	    KeyTop -= H / 2;
+	    if( N == 0 || N == 5 || I == KeyLow ) KeyHeight += H / 2;
+	    else KeyHeight += H;
+	    Key = new QGraphicsRectItem( KeysLeft, KeyTop, WhiteWidth, KeyHeight, Keyboard );
+	    Key->setPen( WhitePen );
+	    Key->setBrush( WhiteBrush );
+	    ++I;
+	    Key = new QGraphicsRectItem( KeysLeft, ( 60-I ) * H, BlackWidth, H, Keyboard );
+	    Key->setZValue( 1 );
+	    Key->setPen( BlackPen );
+	    Key->setBrush( BlackBrush );
+	  }
+	}
+      }
     }
     setScene( Sc );
-  } // update_piano_roll( MIDISequence* ) 
+    setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
+    QPointF Origin = mapToScene( 0, 0 );
+    qDebug() << "Origin:" << Origin;
+  } // update_piano_roll( MIDISequence* )  
+  void PianoRollView::scrollContentsBy( int DX, int DY ) {
+    qDebug() << "Scroll roll by" << DX << DY;
+    QGraphicsView::scrollContentsBy( DX, DY );
+    moveKeyboard();
+  } // scrollContentsBy( int, int )
+  void PianoRollView::resizeEvent( QResizeEvent* Ev ) {
+    QGraphicsView::resizeEvent( Ev );
+    moveKeyboard();
+  } // resizeEvent( QResizeEvent* )
+  void PianoRollView::moveKeyboard() {
+    if( Keyboard ) {
+      QPointF Origin = mapToScene( 0, 0 );
+      QPointF Pos = Keyboard->pos();
+      qDebug() << "Origin:" << Origin << "Pos:" << Pos;
+      if( Pos.x() != Origin.x() )
+	Keyboard->setPos( Origin.x(), Pos.y() );
+    }
+  } // moveKeyboard()
   
   struct BrokenNote {
     enum { MiddleC = 60, FirstLine = 5 };
@@ -857,19 +921,19 @@ namespace MuTraWidgets {
     mViewStack->addWidget( mPianoRoll );
     mScores = new ScoresView( mViewStack );
     mViewStack->addWidget( mScores );
-    mViewStack->setCurrentWidget( mScores );
+    //mViewStack->setCurrentWidget( mScores );
     QActionGroup* Group = new QActionGroup( mUI->ViewMenu );
     QAction* Act = new QAction( tr( "&Scores" ), Group );
     Act->setCheckable( true );
     connect( Act, &QAction::triggered, [this](){ mViewStack->setCurrentWidget( mScores ); } );
     Group->addAction( Act );
     mUI->ViewMenu->addAction( Act );
-    Act->setChecked( true );
     Act = new QAction( tr( "&Piano roll" ), Group );
     Act->setCheckable( true );
     connect( Act, &QAction::triggered, [this](){ mViewStack->setCurrentWidget( mPianoRoll ); } );
     Group->addAction( Act );
     mUI->ViewMenu->addAction( Act );
+    Act->setChecked( true );
     QToolBar* ExerciseBar = addToolBar( tr( "Exercise" ) );
     ExerciseBar->addAction( mUI->ActionPlay );
     connect( mUI->ActionPlay, SIGNAL( triggered( bool ) ), SLOT( toggle_playback( bool ) ) );

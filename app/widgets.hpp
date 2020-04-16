@@ -114,6 +114,12 @@ namespace MuTraWidgets {
   public:
     PianoRollView( QWidget* Parent = nullptr );
     void update_piano_roll( MuTraMIDI::MIDISequence* Sequence = nullptr );
+  protected:
+    void scrollContentsBy( int DX, int DY ) override;
+    void resizeEvent( QResizeEvent* Ev ) override;
+    void moveKeyboard();
+  private:
+    QGraphicsItemGroup* Keyboard;
   }; // PianoRollView
   
   class TracksChannelsModel : public QAbstractListModel {
