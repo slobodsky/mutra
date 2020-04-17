@@ -12,5 +12,11 @@
   <file>images/note-eighth.svg</file>
   <file>images/note-sixteenth.svg</file>
   <file>images/note-thirtysecond.svg</file>
+  <file>images/rest-whole.svg</file>
+  <file>images/rest-half.svg</file>
+  <file>images/rest-quarter.svg</file>
+  <file>images/rest-eighth.svg</file>
+  <file>images/rest-sixteenth.svg</file>
+  <file>images/rest-thirtysecond.svg</file>
 </qresource>
 </RCC>

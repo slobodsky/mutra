@@ -443,10 +443,20 @@ namespace MuTraWidgets {
       int LastBar = 0;
       int BarLength = ( NL.Beats * Div ) / (( 1 << NL.Measure ) / 4.0 );
       int End = LastBar;
-      for( auto N = NL.Notes.rbegin(); N != NL.Notes.rend(); ++N )
-	if( N->mTrack == 0 && N->mStop > End )
-	  End = N->mStop;
-      if( int Tail = End % BarLength ) End += BarLength - Tail;
+      int Thresh = Div / 16; // 1/64 note
+      for( int I = 0; I < NL.Notes.size(); ++I )
+	if( NL.Notes[ I ].mTrack == 0 ) { //! \todo Allow tracks selection.
+	  if( NL.Notes[ I ].mStart > End+Thresh ) { // This stands for the rest
+	    NL.Notes.insert( NL.Notes.begin() + I, Note( NL.Notes[ I ].mValue, -1, End, NL.Notes[ I ].mStart-1, NL.Notes[ I ].mChannel, NL.Notes[ I ].mTrack ) );
+	    ++I;
+	  }
+	  if( NL.Notes[ I ].mStop > End ) End = NL.Notes[ I ].mStop;
+	}
+      if( int Tail = End % BarLength ) {
+	Note& N = NL.Notes.back();
+	NL.Notes.push_back( Note( 60, -1, End, End + BarLength - Tail, 0, 0 ) );
+	End += BarLength - Tail;
+      }
       int NoteWidth = 10;
       double K = NoteWidth * 4.0 / Div;
       double NoteOffset = LinesSpacing * 1.5;
@@ -454,6 +464,7 @@ namespace MuTraWidgets {
       queue<TiedNote> Ties;
       int NoteIndex = 0;
       qDebug() << "Draw notes from" << LastBar << "to" << End;
+      bool Rest = true;
       while( LastBar < End ) {
 	while( NoteIndex < NL.Notes.size() && NL.Notes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
 	int NoteStart = 0;
@@ -464,6 +475,7 @@ namespace MuTraWidgets {
 	  NoteStart = NL.Notes[ NoteIndex ].mStart;
 	  NoteLength = NL.Notes[ NoteIndex ].mStop - NL.Notes[ NoteIndex ].mStart;
 	  NoteValue = NL.Notes[ NoteIndex ].mValue;
+	  Rest = NL.Notes[ NoteIndex ].mVelocity < 0;
 	  ++NoteIndex;
 	}
 	else if( Ties.empty() ) NoteStart = End;
@@ -485,7 +497,7 @@ namespace MuTraWidgets {
 	}
 	if( NoteLength > 0 ) {
 	  BrokenNote B( NoteValue );
-	  if( B.mSharp ) {
+	  if( B.mSharp && !Rest ) {
 	    Sign = new QGraphicsSvgItem( ":/images/sharp.svg" );
 	    Sc->addItem( Sign );
 	    Sign->setPos( NotesStartX + InBar * K, SignsOffset + B.notes_to_c() * LinesSpacing / 2.0 );
@@ -498,11 +510,10 @@ namespace MuTraWidgets {
 	  else if( NoteValue > BrokenNote::MiddleC + 20 )
 	    for( int I = -12; I >= B.notes_to_c(); I -= 2 )
 	      Sc->addLine( NotesStartX + InBar*K - SignsOffsetX, LinesSpacing * ( I/2+5 ), NotesStartX + InBar*K + NoteWidth, LinesSpacing * ( I/2+5 ), LinesPen );
-	  QString NoteFileName = ":/images/note-";
+	  QString NoteFileName = ":/images/";
 	  int CutOff = ( NoteStart + NoteLength ) - ( LastBar + BarLength );
 	  int NoteInBar = CutOff > 0 ? NoteLength - CutOff : NoteLength;
 	  if( NoteInBar > 0 ) {
-	    int Thresh = Div / 16; // 1/64 note
 	    int Duration = 0;
 	    int DurTime = Div * 4;
 	    int ToGo = NoteInBar;
@@ -517,9 +528,11 @@ namespace MuTraWidgets {
 	      ++Duration;
 	    }
 	    DurTime /= ( 1 << Duration );
-	    NoteFileName += DurNames[ Duration ];
-	    Sign = new QGraphicsSvgItem( NoteFileName + ".svg" );
-	    Sign->setPos( NotesStartX + InBar * K, NoteOffset + B.notes_to_c() * LinesSpacing / 2.0 );
+	    NoteFileName += ( QString( Rest ? "rest-" : "note-" ) + DurNames[ Duration ] ) + ".svg";
+	    qreal NoteY = NoteOffset + B.notes_to_c() * LinesSpacing / 2.0;
+	    if( Rest )  NoteY = LinesSpacing * 3;
+	    Sign = new QGraphicsSvgItem( NoteFileName );
+	    Sign->setPos( NotesStartX + InBar * K, NoteY );
 	    Sc->addItem( Sign );
 	    int Dots = 0;
 	    int CutOffInBar = NoteInBar - DurTime;
@@ -528,7 +541,7 @@ namespace MuTraWidgets {
 	      DurTime /= 2;
 	      CutOffInBar -= DurTime;
 	    }
-	    qreal NoteY = ( B.notes_to_c()+10 ) * LinesSpacing / 2;
+	    NoteY = ( B.notes_to_c()+10 ) * LinesSpacing / 2;
 	    qreal NoteX = NotesStartX + InBar*K;
 	    QPointF TieTo( NoteX + SignsOffsetX, NoteY + LinesSpacing * 0.75 );
 	    qreal DotX = NoteX + NoteWidth;
@@ -540,7 +553,7 @@ namespace MuTraWidgets {
 	      if( CutOff > 0 ) CutOff += CutOffInBar;
 	      else CutOff = CutOffInBar;
 	    if( CutOff > Thresh ) Ties.push( TiedNote( NoteValue, NoteStart + NoteLength - CutOff, CutOff, TieTo ) );
-	    if( !TieFrom.isNull() ) {
+	    if( !Rest && !TieFrom.isNull() ) {
 	      QPainterPath Tie;
 	      Tie.moveTo( TieFrom );
 	      qreal Third = ( TieTo.x() - TieFrom.x() ) / 3;
