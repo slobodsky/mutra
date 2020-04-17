@@ -444,10 +444,8 @@ namespace MuTraWidgets {
       int BarLength = ( NL.Beats * Div ) / (( 1 << NL.Measure ) / 4.0 );
       int End = LastBar;
       for( auto N = NL.Notes.rbegin(); N != NL.Notes.rend(); ++N )
-	if( N->mTrack == 0 ) {
+	if( N->mTrack == 0 && N->mStop > End )
 	  End = N->mStop;
-	  break;
-	}
       if( int Tail = End % BarLength ) End += BarLength - Tail;
       int NoteWidth = 10;
       double K = NoteWidth * 4.0 / Div;
@@ -455,6 +453,7 @@ namespace MuTraWidgets {
       double SignsOffset = LinesSpacing * 3.5;
       queue<TiedNote> Ties;
       int NoteIndex = 0;
+      qDebug() << "Draw notes from" << LastBar << "to" << End;
       while( LastBar < End ) {
 	while( NoteIndex < NL.Notes.size() && NL.Notes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
 	int NoteStart = 0;
@@ -537,7 +536,6 @@ namespace MuTraWidgets {
 	      DotX += SignsOffsetX;
 	      Sc->addEllipse( DotX - 1, NoteY - 1, 2, 2, QPen(), QBrush( Qt::black ) );
 	    }
-	    qDebug() << "CutOffInBar:" << CutOffInBar << "CutOff" << CutOff;
 	    if( CutOffInBar > Thresh )
 	      if( CutOff > 0 ) CutOff += CutOffInBar;
 	      else CutOff = CutOffInBar;
@@ -983,7 +981,7 @@ namespace MuTraWidgets {
     mViewStack->addWidget( mPianoRoll );
     mScores = new ScoresView( mViewStack );
     mViewStack->addWidget( mScores );
-    mViewStack->setCurrentWidget( mScores );
+    // mViewStack->setCurrentWidget( mScores );
     QActionGroup* Group = new QActionGroup( mUI->ViewMenu );
     QAction* Act = new QAction( tr( "&Scores" ), Group );
     Act->setCheckable( true );

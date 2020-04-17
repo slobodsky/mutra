@@ -2,6 +2,7 @@
 #define EXERCISE_SEQUENCE_HPP
 #include "../midi/midi_files.hpp"
 #include <fstream>
+#include <list>
 #include <limits.h>
 
 namespace MuTraTrain {
@@ -54,6 +55,13 @@ namespace MuTraTrain {
   private:
     unsigned Channels;		// Каналы файла, которые нужно играть
     unsigned TargetTracks;	// Дорожки (файла?), которые нужно играть
+    struct ChanNote {
+      ChanNote( int Note0 = 60, int Channel0 = 0 ) : Note( Note0 ), Channel( Channel0 ) {}
+      int Note;
+      int Channel;
+      bool operator==( const ChanNote& Other ) const { return Note == Other.Note && Channel == Other.Channel; }
+    }; // ChanNote
+    std::list<ChanNote> HangingNotes;
   public:
     // Метроном
     int Numerator;

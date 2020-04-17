@@ -76,16 +76,23 @@ namespace MuTraTrain {
   {
     if( Velocity > 0 )
     {
-      if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && Clock >= StartPoint && ( StopPoint < 0 || Clock < StopPoint ) )
+      if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && Clock >= StartPoint && ( StopPoint < 0 || Clock < StopPoint ) ) {
+	HangingNotes.push_back( ChanNote( Note, Channel ) );
 	add_original_event( new NoteEvent( ChannelEvent::NoteOn, Channel, Note, Velocity, Clock * tempo() / division() ) );
+      }
     }
     else
       note_off( Channel, Note, Velocity );
   } // note_on( int, int, int )
   void ExerciseSequence::note_off( int Channel, int Note, int Velocity )
   {
-    if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && Clock > StartPoint && ( StopPoint < 0 || Clock <= StopPoint ) )
-      add_original_event( new NoteEvent( ChannelEvent::NoteOff, Channel, Note, Velocity, Clock * tempo() / division() ) );
+    if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && Clock > StartPoint ) {
+      auto It = find( HangingNotes.begin(), HangingNotes.end(), ChanNote( Note, Channel ) );
+      if( It != HangingNotes.end() ) {
+	HangingNotes.erase( It );
+	add_original_event( new NoteEvent( ChannelEvent::NoteOff, Channel, Note, Velocity, Clock * tempo() / division() ) );
+      }
+    }
   } // note_off( int, int, int )
   void ExerciseSequence::tempo( unsigned uSecForQuarter )
   {
