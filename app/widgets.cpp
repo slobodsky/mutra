@@ -9,6 +9,7 @@
 #include <QActionGroup>
 #include <QGraphicsSvgItem>
 //#include <QGraphicsItemGroup>
+#include <queue>
 #include "widgets.hpp"
 #include <QDebug>
 #include "forms/ui_main.h"
@@ -30,6 +31,7 @@ using MuTraTrain::MetronomeOptions;
 using MuTraTrain::ExerciseSequence;
 using MuTraTrain::NoteTrainer;
 using MuTraTrain::Lesson;
+using std::queue;
 using std::vector;
 using std::string;
 using std::swap;
@@ -359,7 +361,17 @@ namespace MuTraWidgets {
     int mNote;
     bool mSharp;
   }; // BrokenNote
-  
+
+  // Лигованная нота (по длительности)
+  struct TiedNote {
+    TiedNote( int Note, int Start = 0, int Length = 0, const QPointF& TieFrom = QPointF() ) : mNote( Note ), mTieFrom( TieFrom ), mStart( Start ), mLength( Length ) {}
+    bool operator==( int Other ) const { return mNote == Other; }
+    int mNote;
+    QPointF mTieFrom;
+    int mStart;
+    int mLength;
+  }; // TiedNote
+
   ScoresView::ScoresView( QWidget* Parent ) : QGraphicsView( Parent ) { scale( 2, 2 ); }
   void ScoresView::update_scores( MIDISequence* Sequence ) {
     QGraphicsScene* Sc = new QGraphicsScene( this );
@@ -430,68 +442,118 @@ namespace MuTraWidgets {
       NotesStartX += Text->boundingRect().width() + SignsOffsetX * 2;
       int LastBar = 0;
       int BarLength = ( NL.Beats * Div ) / (( 1 << NL.Measure ) / 4.0 );
-      int NoteWidth = 14;
+      int End = LastBar;
+      for( auto N = NL.Notes.rbegin(); N != NL.Notes.rend(); ++N )
+	if( N->mTrack == 0 ) {
+	  End = N->mStop;
+	  break;
+	}
+      if( int Tail = End % BarLength ) End += BarLength - Tail;
+      int NoteWidth = 10;
       double K = NoteWidth * 4.0 / Div;
       double NoteOffset = LinesSpacing * 1.5;
       double SignsOffset = LinesSpacing * 3.5;
-      for( Note N : NL.Notes ) {
-	if( N.mTrack == 0 ) { // ATM draw only the first track
-	  int InBar = N.mStart - LastBar;
-	  while( InBar >= BarLength ) {
-	    InBar -= BarLength;
-	    NotesStartX += BarLength * K;
-	    NotesStartX += SignsOffsetX;
-	    Sc->addLine( NotesStartX, Top, NotesStartX, Bottom, LinesPen );
-	    NotesStartX += SignsOffsetX;
-	    LastBar += BarLength;
-	  }
-	  BrokenNote B( N.mValue );
+      queue<TiedNote> Ties;
+      int NoteIndex = 0;
+      while( LastBar < End ) {
+	while( NoteIndex < NL.Notes.size() && NL.Notes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
+	int NoteStart = 0;
+	int NoteLength = 0;
+	int NoteValue = 60;
+	QPointF TieFrom;
+	if( NoteIndex < NL.Notes.size() && ( Ties.empty() || NL.Notes[ NoteIndex ].mStart < Ties.front().mStart ) ) {
+	  NoteStart = NL.Notes[ NoteIndex ].mStart;
+	  NoteLength = NL.Notes[ NoteIndex ].mStop - NL.Notes[ NoteIndex ].mStart;
+	  NoteValue = NL.Notes[ NoteIndex ].mValue;
+	  ++NoteIndex;
+	}
+	else if( Ties.empty() ) NoteStart = End;
+	else {
+	  NoteStart = Ties.front().mStart;
+	  NoteLength = Ties.front().mLength;
+	  NoteValue = Ties.front().mNote;
+	  TieFrom = Ties.front().mTieFrom;
+	  Ties.pop();
+	}
+	int InBar = NoteStart - LastBar;
+	while( InBar >= BarLength ) {
+	  InBar -= BarLength;
+	  NotesStartX += BarLength * K;
+	  NotesStartX += SignsOffsetX;
+	  Sc->addLine( NotesStartX, Top, NotesStartX, Bottom, LinesPen );
+	  NotesStartX += SignsOffsetX;
+	  LastBar += BarLength;
+	}
+	if( NoteLength > 0 ) {
+	  BrokenNote B( NoteValue );
 	  if( B.mSharp ) {
 	    Sign = new QGraphicsSvgItem( ":/images/sharp.svg" );
 	    Sc->addItem( Sign );
 	    Sign->setPos( NotesStartX + InBar * K, SignsOffset + B.notes_to_c() * LinesSpacing / 2.0 );
 	    InBar += ( Sign->boundingRect().width() + 1 ) / K;
 	  }
-	  if( N.mValue == BrokenNote::MiddleC ) Sc->addLine( NotesStartX + InBar*K - SignsOffsetX, LinesSpacing * 5, NotesStartX + InBar*K + NoteWidth, LinesSpacing * 5, LinesPen );
-	  else if( N.mValue < BrokenNote::MiddleC - 19 )
+	  if( NoteValue == BrokenNote::MiddleC ) Sc->addLine( NotesStartX + InBar*K - SignsOffsetX, LinesSpacing * 5, NotesStartX + InBar*K + NoteWidth, LinesSpacing * 5, LinesPen );
+	  else if( NoteValue < BrokenNote::MiddleC - 19 )
 	    for( int I = 12; I <= B.notes_to_c(); I += 2 )
 	      Sc->addLine( NotesStartX + InBar*K - SignsOffsetX, LinesSpacing * ( I/2+5 ), NotesStartX + InBar*K + NoteWidth, LinesSpacing * ( I/2+5 ), LinesPen );
-	  else if( N.mValue > BrokenNote::MiddleC + 20 )
+	  else if( NoteValue > BrokenNote::MiddleC + 20 )
 	    for( int I = -12; I >= B.notes_to_c(); I -= 2 )
 	      Sc->addLine( NotesStartX + InBar*K - SignsOffsetX, LinesSpacing * ( I/2+5 ), NotesStartX + InBar*K + NoteWidth, LinesSpacing * ( I/2+5 ), LinesPen );
 	  QString NoteFileName = ":/images/note-";
-	  int NoteLen = N.mStop - N.mStart;
-	  if( NoteLen > BarLength ) NoteLen = BarLength;
-	  int Thresh = Div / 16;
-	  int Diff = Div * 4 - NoteLen; //! \todo Use an array of names & a loop for this.
+	  int CutOff = ( NoteStart + NoteLength ) - ( LastBar + BarLength );
+	  int NoteInBar = CutOff > 0 ? NoteLength - CutOff : NoteLength;
+	  if( NoteInBar > 0 ) {
+	    int Thresh = Div / 16; // 1/64 note
+	    int Duration = 0;
+	    int DurTime = Div * 4;
+	    int ToGo = NoteInBar;
+	    int DurStop = 5;
+	    static const char* DurNames[] = { "whole", "half", "quarter", "eighth", "sixteenth", "thirtysecond", "sixtyfourth" };
+	    while( Duration < DurStop ) {
+	      int Diff = DurTime / ( 1 << Duration ) - NoteInBar; //! \todo Use an array of names & a loop for this.
 #ifdef MUTRA_DEBUG
-	  qDebug() << "Thresh" << Thresh << "Diff" << Diff << "NoteLen" << NoteLen << "Div" << Div;
+	      qDebug() << "Thresh" << Thresh << "Diff" << Diff << "NoteInBar" << NoteInBar << "Div" << Div;
 #endif // MUTRA_DEBUG
-	  if( Diff < Thresh ) NoteFileName += "whole";
-	  else {
-	    Diff = Div * 2 - NoteLen;
-	    if( Diff < Thresh ) NoteFileName += "half";
-	    else {
-	      Diff = Div - NoteLen;
-	      if( Diff < Thresh ) NoteFileName += "quarter";
-	      else {
-		Diff = Div / 2 - NoteLen;
-		if( Diff < Thresh ) NoteFileName += "eighth";
-		else {
-		  Diff = Div / 4 - NoteLen;
-		  if( Diff < Thresh ) NoteFileName += "sixteenth";
-		  else NoteFileName += "thirtysecond";
-		}
-	      }
+	      if( Diff < Thresh ) break;
+	      ++Duration;
 	    }
-	  }
-	  Sign = new QGraphicsSvgItem( NoteFileName + ".svg" );
-	  Sign->setPos( NotesStartX + InBar * K, NoteOffset + B.notes_to_c() * LinesSpacing / 2.0 );
-	  Sc->addItem( Sign );
-	}
-      }
+	    DurTime /= ( 1 << Duration );
+	    NoteFileName += DurNames[ Duration ];
+	    Sign = new QGraphicsSvgItem( NoteFileName + ".svg" );
+	    Sign->setPos( NotesStartX + InBar * K, NoteOffset + B.notes_to_c() * LinesSpacing / 2.0 );
+	    Sc->addItem( Sign );
+	    int Dots = 0;
+	    int CutOffInBar = NoteInBar - DurTime;
+	    while( CutOffInBar + Thresh > DurTime / 2 && CutOffInBar < DurTime && DurTime > Thresh ) {
+	      ++Dots;
+	      DurTime /= 2;
+	      CutOffInBar -= DurTime;
+	    }
+	    qreal NoteY = ( B.notes_to_c()+10 ) * LinesSpacing / 2;
+	    qreal NoteX = NotesStartX + InBar*K;
+	    QPointF TieTo( NoteX + SignsOffsetX, NoteY + LinesSpacing * 0.75 );
+	    qreal DotX = NoteX + NoteWidth;
+	    for( int I = 0; I < Dots; ++I ) {
+	      DotX += SignsOffsetX;
+	      Sc->addEllipse( DotX - 1, NoteY - 1, 2, 2, QPen(), QBrush( Qt::black ) );
+	    }
+	    qDebug() << "CutOffInBar:" << CutOffInBar << "CutOff" << CutOff;
+	    if( CutOffInBar > Thresh )
+	      if( CutOff > 0 ) CutOff += CutOffInBar;
+	      else CutOff = CutOffInBar;
+	    if( CutOff > Thresh ) Ties.push( TiedNote( NoteValue, NoteStart + NoteLength - CutOff, CutOff, TieTo ) );
+	    if( !TieFrom.isNull() ) {
+	      QPainterPath Tie;
+	      Tie.moveTo( TieFrom );
+	      qreal Third = ( TieTo.x() - TieFrom.x() ) / 3;
+	      Tie.cubicTo( QPoint( TieFrom.x() + Third, TieFrom.y()+LinesSpacing ), QPointF( TieTo.x() - Third, TieTo.y()+LinesSpacing ), TieTo );
+	      Sc->addPath( Tie );
+	    }
+	  } // NoteInBar > 0
+	} // NoteLength > 0
+      } // while( LastBar < End )
       FinishX = NotesStartX;
-      if( NL.Notes.back().mStop % BarLength > 0 ) FinishX += BarLength * K + SignsOffsetX;
+      if( End % BarLength > 0 ) FinishX += BarLength * K + SignsOffsetX;
       Sc->addLine( FinishX, Top, FinishX, Bottom, LinesPen );
       int Y = Top;
       for( int I = 0; I < 5; ++I ) {
@@ -503,7 +565,7 @@ namespace MuTraWidgets {
 	Sc->addLine( StartX, Y, FinishX, Y, LinesPen );
 	Y += LinesSpacing;
       }
-    }
+    } // Have sequence
     setScene( Sc );
   } // update_scores( MIDISequence* )
   
@@ -921,7 +983,7 @@ namespace MuTraWidgets {
     mViewStack->addWidget( mPianoRoll );
     mScores = new ScoresView( mViewStack );
     mViewStack->addWidget( mScores );
-    //mViewStack->setCurrentWidget( mScores );
+    mViewStack->setCurrentWidget( mScores );
     QActionGroup* Group = new QActionGroup( mUI->ViewMenu );
     QAction* Act = new QAction( tr( "&Scores" ), Group );
     Act->setCheckable( true );
