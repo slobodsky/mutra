@@ -62,6 +62,9 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QDockWidget" name="PianoBoard">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="windowTitle">
     <string>Pano board</string>
    </property>
@@ -80,6 +83,15 @@
    <widget class="QWidget" name="dockWidgetContents_2">
     <layout class="QVBoxLayout" name="verticalLayout"/>
    </widget>
+  </widget>
+  <widget class="QDockWidget" name="ScoresDock">
+   <property name="windowTitle">
+    <string>Scores</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_3"/>
   </widget>
   <action name="ActionOpen">
    <property name="icon">

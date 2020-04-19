@@ -213,7 +213,7 @@ namespace MuTraWidgets {
   PianoRollView::PianoRollView( QWidget* Parent ) : QGraphicsView( Parent ), Keyboard( nullptr ) {} // PianoRollView( QWidget* )
   void PianoRollView::update_piano_roll( MIDISequence* Sequence ) {
     QGraphicsScene* Sc = new QGraphicsScene( this );
-    Sc->setBackgroundBrush( QColor( 64, 64, 64 ) );
+    Sc->setBackgroundBrush( QColor( 72, 72, 72 ) );
     int SceneLeft = 0;
     if( Sequence ) {
       int TracksCount = Sequence->tracks().size();
@@ -246,6 +246,9 @@ namespace MuTraWidgets {
       if( High > Low ) {
 	int Top = ( 60-High ) * H;
 	Bottom = ( 60-Low+1 ) * H;
+	for( int I = Low; I <= High; ++I )
+	  if( ( 1 << ( I % 12 ) ) & 0x54A )
+	    Sc->addRect( 0, ( 60-I ) * H, Finish / K, H, QPen(), QBrush( QColor( 64, 64, 64 ) ) );
 	int Beat = 0;
 	for( int X = 0; X < Finish; X += Div ) {
 	  QPen Pen;
@@ -255,9 +258,14 @@ namespace MuTraWidgets {
 	}
 	for( int Y = Top; Y <= Bottom; Y += H )
 	  Sc->addLine( 0, Y, Finish / K, Y );
-	for( int Y = Bottom + 16; Y < Bottom + 16 + 127; Y += 16 )
-	  Sc->addLine( 0, Y, Finish / K, Y );
-	Sc->addLine( 0, Bottom + 16 + 127, Finish / K, Bottom + 16 + 127 );
+	QPen BoldPen = QPen( Qt::black, 2 );
+	QPen LinePen = QPen( QColor( 0, 0, 0, 128 ), 1 );
+	QPen SemiBoldPen = QPen( QColor( 0, 0, 0, 128 ), 1.5 );
+	int BarsTop = Bottom + 16;
+	int BarsBottom = BarsTop + 128;
+	Sc->addRect( 0, BarsTop, Finish / K, 128, BoldPen, QBrush( QColor( 64, 64, 64 ) ) );
+	for( qreal Y = BarsBottom; Y > BarsTop; Y -= 12.8 ) Sc->addLine( 0, Y, Finish / K, Y );
+	Sc->addLine( 0, BarsBottom - 64, Finish / K, BarsBottom - 64, SemiBoldPen );
       }
       for( Note N: NL.Notes ) {
 #ifdef MUTRA_DEBUG
@@ -322,10 +330,8 @@ namespace MuTraWidgets {
     setScene( Sc );
     setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
     QPointF Origin = mapToScene( 0, 0 );
-    qDebug() << "Origin:" << Origin;
   } // update_piano_roll( MIDISequence* )  
   void PianoRollView::scrollContentsBy( int DX, int DY ) {
-    qDebug() << "Scroll roll by" << DX << DY;
     QGraphicsView::scrollContentsBy( DX, DY );
     moveKeyboard();
   } // scrollContentsBy( int, int )
@@ -337,7 +343,6 @@ namespace MuTraWidgets {
     if( Keyboard ) {
       QPointF Origin = mapToScene( 0, 0 );
       QPointF Pos = Keyboard->pos();
-      qDebug() << "Origin:" << Origin << "Pos:" << Pos;
       if( Pos.x() != Origin.x() )
 	Keyboard->setPos( Origin.x(), Pos.y() );
     }
@@ -447,7 +452,7 @@ namespace MuTraWidgets {
       for( int I = 0; I < NL.Notes.size(); ++I )
 	if( NL.Notes[ I ].mTrack == 0 ) { //! \todo Allow tracks selection.
 	  if( NL.Notes[ I ].mStart > End+Thresh ) { // This stands for the rest
-	    NL.Notes.insert( NL.Notes.begin() + I, Note( NL.Notes[ I ].mValue, -1, End, NL.Notes[ I ].mStart-1, NL.Notes[ I ].mChannel, NL.Notes[ I ].mTrack ) );
+	    NL.Notes.insert( NL.Notes.begin() + I, Note( 60, -1, End, NL.Notes[ I ].mStart-1, NL.Notes[ I ].mChannel, NL.Notes[ I ].mTrack ) );
 	    ++I;
 	  }
 	  if( NL.Notes[ I ].mStop > End ) End = NL.Notes[ I ].mStop;
@@ -463,7 +468,6 @@ namespace MuTraWidgets {
       double SignsOffset = LinesSpacing * 3.5;
       queue<TiedNote> Ties;
       int NoteIndex = 0;
-      qDebug() << "Draw notes from" << LastBar << "to" << End;
       bool Rest = true;
       while( LastBar < End ) {
 	while( NoteIndex < NL.Notes.size() && NL.Notes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
@@ -544,10 +548,10 @@ namespace MuTraWidgets {
 	    NoteY = ( B.notes_to_c()+10 ) * LinesSpacing / 2;
 	    qreal NoteX = NotesStartX + InBar*K;
 	    QPointF TieTo( NoteX + SignsOffsetX, NoteY + LinesSpacing * 0.75 );
-	    qreal DotX = NoteX + NoteWidth;
+	    qreal DotX = NoteX + NoteWidth + SignsOffsetX;
 	    for( int I = 0; I < Dots; ++I ) {
-	      DotX += SignsOffsetX;
 	      Sc->addEllipse( DotX - 1, NoteY - 1, 2, 2, QPen(), QBrush( Qt::black ) );
+	      DotX += SignsOffsetX * 2;
 	    }
 	    if( CutOffInBar > Thresh )
 	      if( CutOff > 0 ) CutOff += CutOffInBar;
@@ -639,7 +643,6 @@ namespace MuTraWidgets {
       else channel( Index.row()-mTracksCount-2, Value == Qt::Checked );
       return true;
     }
-    qDebug() << "Set data for item's" << Index << "role" << Role << "to" << Value;
     return setData( Index, Value, Role );
   } // setData( const QModelIndex&, const QVariant&, int )
   
@@ -806,85 +809,102 @@ namespace MuTraWidgets {
     if( mSequencer ) mSequencer->control_change( Channel, 10, Value );
   } // pan_changed( int, int )
   
-  class StatisticsModel : public QAbstractItemModel {
-  public:
-    StatisticsModel( QObject* Parent = nullptr ) : QAbstractItemModel( Parent ), mLesson( nullptr ) {} // StatisticsModel( QObject* )
-    Lesson* lesson() const { return mLesson; }
-    void lesson( Lesson* NewLesson );
-    void add_stat( const ExerciseSequence::NotesStat& NewStat );
-    // Model overrides
-    QModelIndex index( int Row, int Column, const QModelIndex& Parent ) const;
-    QModelIndex parent( const QModelIndex& Index ) const;
-    int rowCount( const QModelIndex& Index ) const;
-    int columnCount( const QModelIndex& Index ) const;
-    QVariant headerData( int Section, Qt::Orientation Orient, int Role ) const;
-    QVariant data( const QModelIndex& Index, int Role ) const;
-  private:
-    enum { EmptyType, LessonType, ExerciseType, StatsType };
-    static unsigned type( quintptr ID ) { return ID & 0xF; }
-    static unsigned exercise( quintptr ID ) { return ( ID >> 4 ) & 0xFFF; }
-    static unsigned stats( quintptr ID ) { return ( ID >> 16 ) & 0xFFFF; }
-    static quintptr pack( unsigned Type, unsigned Exercise = 0, unsigned Stats = 0 ) { return ( Type & 0xF ) | ( ( Exercise & 0xFFF ) << 4 ) | ( ( Stats & 0xFFFF ) << 16 ); }
-    Lesson* mLesson;
-    vector<ExerciseSequence::NotesStat> mStats;
-  }; // StatisticsModel
-  void StatisticsModel::lesson( Lesson* NewLesson ) {
+  StatisticsModel::Item::~Item() { for( Item* It : mSubItems ) delete It; } // ~Item()
+  QVariant StatisticsModel::Item::data( int Col ) const { qDebug() << "Get data item " << mName << "col" << Col; return Col == 0 ? QVariant( mName ) : QVariant(); }
+  QVariant StatisticsModel::Item::icon() const { qDebug() << "Get icon for item " << mName; return QVariant(); }
+  QVariant StatisticsModel::StatsItem::data( int Col ) const {
+    if( mStat.Result < ExerciseSequence::NoteError )
+      switch( Col ) {
+      case 1: return QVariant( mStat.StartMin );
+      case 2: return QVariant( mStat.StartMax );
+      case 3: return QVariant( mStat.StopMin );
+      case 4: return QVariant( mStat.StopMax );
+      case 5: return QVariant( mStat.VelocityMin );
+      case 6: return QVariant( mStat.VelocityMax );
+      }
+    return Item::data( Col );
+  } // data( int ) const
+  QVariant StatisticsModel::StatsItem::icon() const {
+    switch( mStat.Result ) {
+    case ExerciseSequence::NoError: return QIcon::fromTheme( "gtk-yes" );
+    case ExerciseSequence::NoteError: return QIcon::fromTheme( "gtk-no" );
+    case ExerciseSequence::RythmError: return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
+    case ExerciseSequence::VelocityError: return QIcon::fromTheme( "preferences-desktop-notification-bell" );
+    case ExerciseSequence::EmptyPlay: return QIcon::fromTheme( "user-offline" );
+    }
+    return Item::icon();
+  } // icon() const
+  
+  void StatisticsModel::clear() {
     beginResetModel();
-    mLesson = NewLesson;
-    mStats.clear();
+    mActivity = EmptyType;
+    for( Item* It : mItems ) delete It;
+    mItems.clear();
     endResetModel();
+  } // clear()
+  void StatisticsModel::start_lesson( const Lesson& NewLesson ) {
+    mActivity = LessonType;
+    beginInsertRows( QModelIndex(), mItems.size(), mItems.size() );
+    mItems.push_back( new Item( QFileInfo( QString::fromStdString( NewLesson.lesson_name() ) ).baseName() ) );
+    endInsertRows();
   } // lesson( Lesson* )
+  void StatisticsModel::finish_lesson( const Lesson& NewLesson ) { mActivity = EmptyType; } // lesson( Lesson& )
+  void StatisticsModel::start_exercise( const Lesson::Exercise& NewExercise ) {
+    if( mActivity == EmptyType ) {
+      beginInsertRows( QModelIndex(), mItems.size(), mItems.size() );
+      mItems.push_back( new Item( tr( "Free exercises" ) ) );
+      endInsertRows();
+      mActivity = ExerciseType;
+    }
+    int NewRow = mItems.back()->mSubItems.size();
+    beginInsertRows( index( mItems.size()-1, 0, QModelIndex() ), NewRow, NewRow );
+    new Item( QFileInfo( QString::fromStdString( NewExercise.file_name() ) ).baseName(), mItems.back() );
+    endInsertRows();
+  } // exercise( Lesson::Exercise& )
+  void StatisticsModel::finish_exercise( const Lesson::Exercise& NewExercise ) {} // exercise( Lesson::Exercise& )
   void StatisticsModel::add_stat( const ExerciseSequence::NotesStat& NewStat ) {
-    beginInsertRows( QModelIndex(), mStats.size(), mStats.size() );
-    mStats.push_back( NewStat );
+    if( mActivity == EmptyType || mItems.empty() || mItems.back()->mSubItems.empty() ) return;
+    int NewRow = mItems.back()->mSubItems.back()->mSubItems.size();
+    beginInsertRows( index( mItems.back()->mSubItems.size()-1, 0, index( mItems.size()-1, 0, QModelIndex() ) ), NewRow, NewRow );
+    new StatsItem( NewStat, QString::number( NewRow ), mItems.back()->mSubItems.back() );
     endInsertRows();
   } // add_stat( const ExerciseSequence::NotesStat& )
   QModelIndex StatisticsModel::index( int Row, int Column, const QModelIndex& Parent ) const {
     if( Parent.isValid() ) {
-      switch( type( Parent.internalId() ) ) {
-      case LessonType: return createIndex( Row, Column, pack( ExerciseType, Row ) );
-      case ExerciseType: return createIndex( Row, Column, pack( StatsType, Parent.row(), Row ) );
-      }
+      if( Item* It = static_cast<Item*>( Parent.internalPointer() ) )		
+	return createIndex( Row, Column, It->mSubItems[ Row ] );
     }
-    else if( mLesson ) { if( Row == 0 ) return createIndex( Row, Column, pack( LessonType, Row ) ); }
-    else if( Row < mStats.size() ) return createIndex( Row, Column, pack( StatsType, 0, Row ) );
+    else return createIndex( Row, Column, mItems[ Row ] );
     return QModelIndex();
   } // index( int, int, const QModelIndex& ) const
   QModelIndex StatisticsModel::parent( const QModelIndex& Index ) const {
     if( Index.isValid() ) {
-      switch( type( Index.internalId() ) ) {
-      case LessonType: return QModelIndex();
-      case ExerciseType: return createIndex( 0, 0, pack( LessonType ) );
-      case StatsType: if( mLesson ) {
-	  int Row = exercise( Index.internalId() );
-	  return createIndex( Row, 0, pack( ExerciseType, Row ) );
+      if( Item* It = static_cast<Item*>( Index.internalPointer() ) )
+	if( Item* Parent = It->mParent ) {
+	  if( Item* GranParent = Parent->mParent ) {
+	    for( int Row = 0; Row < GranParent->mSubItems.size(); ++Row )
+	      if( GranParent->mSubItems[ Row ] == Parent )
+		return createIndex( Row, 0, Parent );
+	  }
+	  else {
+	    for( int Row = 0; Row < mItems.size(); ++Row )
+	      if( mItems[ Row ] == Parent )
+		return createIndex( Row, 0, Parent );
+	  }
 	}
-	break;
-      }
     }
     return QModelIndex();
   } // parent( const QModelIndex& )
   int StatisticsModel::rowCount( const QModelIndex& Index ) const {
-    //! \todo Make stats for exercises without lesson.
-    //qDebug() << "Get rows for index" << Index;
-    if( !mLesson ) return mStats.size();
-    if( !Index.isValid() ) { /*qDebug() << "We have lesson";*/ return 1; }
-    if( Index.column() != 0 ) return 0;
-    switch( type( Index.internalId() ) ) {
-    case LessonType: /*qDebug() << "Lesson have" << mLesson->exercises().size() << "exercises.";*/ return mLesson->exercises().size();
-    case ExerciseType: /*qDebug() << "Exercise have" << mLesson->exercise( Index.row() ).statistics().size() << "statistics.";*/ return mLesson->exercise( Index.row() ).statistics().size();
-    }
+    if( !Index.isValid() ) return mItems.size();
+    if( Item* It = static_cast<Item*>( Index.internalPointer() ) )
+      return It->mSubItems.size();
     return 0;
   } // rowCount( const QModelIndex& ) const
   int StatisticsModel::columnCount( const QModelIndex& Index ) const {
     if( Index.isValid() )
-      switch( type( Index.internalId() ) ) {
-      case LessonType:
-      case ExerciseType:
-	return 1;
-      case StatsType:
-	return 7;
-      }
+      if( Item* It = static_cast<Item*>( Index.internalPointer() ) )
+	return It->colsnum();
     return 7;
   } // columnCount( const QModelIndex& ) const
   QVariant StatisticsModel::headerData( int Section, Qt::Orientation Orient, int Role ) const {
@@ -903,52 +923,14 @@ namespace MuTraWidgets {
   QVariant StatisticsModel::data( const QModelIndex& Index, int Role ) const {
     //!  \todo implement this
     if( !Index.isValid() ) return QVariant();
-    if( Role == Qt::DisplayRole )
-      switch( type( Index.internalId() ) ) {
-      case LessonType:
-	if( Index.column() == 0 ) return QFileInfo( QString::fromStdString( mLesson->lesson_name() ) ).baseName();
-	return QVariant();
-      case ExerciseType: {
-	const Lesson::Exercise& Ex = mLesson->exercise( exercise( Index.internalId() ) );
-	switch( Index.column() ) { //! \todo Add exercise limits here
-	case 0: return QFileInfo( QString::fromStdString( Ex.file_name() ) ).baseName();
-	}
-      }	break;
-      case StatsType:
-	if( Index.column() == 0 ) return QVariant( Index.row()+1 );
-	else {
-	  ExerciseSequence::NotesStat Stats = mLesson ? mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ) : mStats[ stats( Index.internalId() ) ];
-	  if( Stats.Result < ExerciseSequence::NoteError )
-	    switch( Index.column() ) {
-	    case 1: return QVariant( Stats.StartMin );
-	    case 2: return QVariant( Stats.StartMax );
-	    case 3: return QVariant( Stats.StopMin );
-	    case 4: return QVariant( Stats.StopMax );
-	    case 5: return QVariant( Stats.VelocityMin );
-	    case 6: return QVariant( Stats.VelocityMax );
-	    }
-	}
-	break;
-      }
-    else if( Role == Qt::BackgroundRole ) {
-      switch( type( Index.internalId() ) ) {
-      case LessonType: return QBrush( QColor( 128, 128, 128 ) );
-      case ExerciseType: return QBrush( QColor( 128, 128, 128, 128 ) );
-      }
-    }
-    else if( Role == Qt::DecorationRole ) {
-      if( Index.column() == 0 && type( Index.internalId() ) == StatsType )
-	switch( mLesson ? mLesson->exercise( exercise( Index.internalId() ) ).stats( stats( Index.internalId() ) ).Result : mStats[ stats( Index.internalId() ) ].Result ) {
-	case ExerciseSequence::NoError: return QIcon::fromTheme( "gtk-yes" );
-	case ExerciseSequence::NoteError: return QIcon::fromTheme( "gtk-no" );
-	case ExerciseSequence::RythmError: return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
-	case ExerciseSequence::VelocityError: return QIcon::fromTheme( "preferences-desktop-notification-bell" );
-	case ExerciseSequence::EmptyPlay: return QIcon::fromTheme( "user-offline" );
-	}
+    if( Item* It = static_cast<Item*>( Index.internalPointer() ) ) {
+      if( Role == Qt::DisplayRole ) return It->data( Index.column() );
+      else if( Role == Qt::BackgroundRole ) return It->brush();
+      else if( Role == Qt::DecorationRole && Index.column() == 0 ) return It->icon();
     }
     return QVariant();
   } // data( const QModelIndex&, int )
-
+  
   Player::Player( MIDISequence* Play, Sequencer* Seq, QObject* Parent ) : QThread( Parent ), mSequencer( Seq ), mPlay( Play ) {}
   Player::Player( const vector<string>& PlayList, Sequencer* Seq, QObject* Parent ) : QThread( Parent ), mSequencer( Seq ), mPlayList( PlayList ) {}
   void Player::run() {
@@ -992,9 +974,14 @@ namespace MuTraWidgets {
     setCentralWidget( mViewStack );
     mPianoRoll = new PianoRollView( mViewStack );
     mViewStack->addWidget( mPianoRoll );
+    mUI->PianoBoard->hide();
+#ifndef MUTRA_STACKED_SCORES
+    mScores = new ScoresView( mUI->ScoresDock );
+    mUI->ScoresDock->setWidget( mScores );
+#else // MUTRA_STACKED_SCORES
     mScores = new ScoresView( mViewStack );
     mViewStack->addWidget( mScores );
-    // mViewStack->setCurrentWidget( mScores );
+    mViewStack->setCurrentWidget( mScores );
     QActionGroup* Group = new QActionGroup( mUI->ViewMenu );
     QAction* Act = new QAction( tr( "&Scores" ), Group );
     Act->setCheckable( true );
@@ -1007,6 +994,7 @@ namespace MuTraWidgets {
     Group->addAction( Act );
     mUI->ViewMenu->addAction( Act );
     Act->setChecked( true );
+#endif // MUTRA_STACKED_SCORES
     QToolBar* ExerciseBar = addToolBar( tr( "Exercise" ) );
     ExerciseBar->addAction( mUI->ActionPlay );
     connect( mUI->ActionPlay, SIGNAL( triggered( bool ) ), SLOT( toggle_playback( bool ) ) );
@@ -1092,7 +1080,6 @@ namespace MuTraWidgets {
   } // playback_complete()
   bool MainWindow::load_lesson( const string& FileName ) {
     mLesson = new Lesson( FileName );
-    if( mStats ) mStats->lesson( mLesson );
     if( mLesson->exercises().empty() ) return false;
     if( load_exercise( mLesson->file_name() ) ) {
       mStrike = mLesson->strike();
@@ -1147,8 +1134,8 @@ namespace MuTraWidgets {
   bool MainWindow::close_file() {
     stop_recording();
     complete_exercise();
-    if( mStats ) mStats->lesson( nullptr );
     if( mLesson ) { //! \todo If the file is modified then ask to save it.
+      if( mStats ) mStats->finish_lesson( *mLesson );
       delete mLesson;
       mLesson = nullptr;
     }
@@ -1240,6 +1227,14 @@ namespace MuTraWidgets {
     if( mExercise && mInput ) {
       if( On ) {
 	if( mToGo == 0 ) mToGo = mRetries;
+	if( mStats ) {
+	  if( mLesson ) {
+	    if( mLesson->current() == 0 ) mStats->start_lesson( *mLesson );
+	    mStats->start_exercise( mLesson->exercise( mLesson->current() ) );
+	  }
+	  else
+	    mStats->start_exercise( Lesson::Exercise( mExerciseName ) );
+	}
 	start_exercise();
       }
       else complete_exercise();
@@ -1276,12 +1271,14 @@ namespace MuTraWidgets {
 	  mStrike = mLesson->strike();
 	  mRetries = mLesson->retries();
 	  mToGo = mRetries;
+	  if( mStats )  mStats->start_exercise( mLesson->exercise( mLesson->current() ) );
 	}
       }
     }
     else mToGo = mRetries;
     update_piano_roll();
     if( mExercise && mToGo > 0 ) start_exercise();
+    else if( mStats && mLesson ) mStats->finish_lesson( *mLesson );
   } // timer()
 
   void MainWindow::start_exercise() {
@@ -1333,7 +1330,7 @@ namespace MuTraWidgets {
       break;
     }
     if( mLesson ) mLesson->new_stat( Stats );
-    else if( mStats ) mStats->add_stat( Stats );
+    if( mStats ) mStats->add_stat( Stats );
     qDebug() << "Statistics: start:" << Stats.StartMin << "-" << Stats.StartMax << "stop:" << Stats.StopMin << "-" << Stats.StopMax << "velocity:" << Stats.VelocityMin << "-" << Stats.VelocityMax;
     mUI->ActionExercise->setChecked( false );
     update_piano_roll();

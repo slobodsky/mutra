@@ -37,6 +37,7 @@ namespace MuTraTrain {
     int strike() const { return Exercises[ Current ].strike(); }
     void new_stat( const ExerciseSequence::NotesStat& NewStat ) { Exercises[ Current ].new_stat( NewStat ); }
 
+    int current() const { return Current; }
     bool next();
     bool save( const std::string& ToFile );
     bool save();

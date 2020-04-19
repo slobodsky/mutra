@@ -201,7 +201,52 @@ namespace MuTraWidgets {
     MuTraMIDI::Sequencer* mSequencer;
   }; // MIDIMixer
 
-  class StatisticsModel;
+  class StatisticsModel : public QAbstractItemModel {
+    Q_OBJECT
+    struct Item {
+      Item( const QString& Name, Item* Parent = nullptr ) : mName( Name ), mParent( Parent ) { if( mParent ) mParent->mSubItems.push_back( this ); }
+      virtual ~Item();
+      virtual QVariant data( int Col ) const;
+      virtual QVariant icon() const;
+      virtual QVariant brush() const { return mParent ? QBrush( QColor( 80, 80, 80 ) ) : QBrush( QColor( 100, 100, 100 ) ); }
+      virtual int colsnum() const { return 1; }
+      QString mName;
+      Item* mParent;
+      std::vector<Item*> mSubItems;
+    }; // Item
+    struct StatsItem : Item {
+      StatsItem( const MuTraTrain::ExerciseSequence::NotesStat& Stat, const QString& Name = QString(), Item* Parent = nullptr ) : Item( Name, Parent ), mStat( Stat ) {}
+      QVariant data( int Col ) const override;
+      QVariant icon() const override;
+      QVariant brush() const override { return QVariant(); }
+      int colsnum() const override { return 7; }
+      MuTraTrain::ExerciseSequence::NotesStat mStat;
+    }; // StatItem
+  public:
+    StatisticsModel( QObject* Parent = nullptr ) : QAbstractItemModel( Parent ), mActivity( EmptyType ) {} // StatisticsModel( QObject* )
+    ~StatisticsModel() { clear(); }
+    void start_lesson( const MuTraTrain::Lesson& NewLesson );
+    void finish_lesson( const MuTraTrain::Lesson& NewLesson );
+    void start_exercise( const MuTraTrain::Lesson::Exercise& NewEx );
+    void finish_exercise( const MuTraTrain::Lesson::Exercise& Ex );
+    void add_stat( const MuTraTrain::ExerciseSequence::NotesStat& NewStat );
+    void clear();
+    // Model overrides
+    QModelIndex index( int Row, int Column, const QModelIndex& Parent ) const;
+    QModelIndex parent( const QModelIndex& Index ) const;
+    int rowCount( const QModelIndex& Index ) const;
+    int columnCount( const QModelIndex& Index ) const;
+    QVariant headerData( int Section, Qt::Orientation Orient, int Role ) const;
+    QVariant data( const QModelIndex& Index, int Role ) const;
+  private:
+    enum Type { EmptyType, LessonType, ExerciseType, StatsType };
+    static unsigned type( quintptr ID ) { return ID & 0xF; }
+    static unsigned exercise( quintptr ID ) { return ( ID >> 4 ) & 0xFFF; }
+    static unsigned stats( quintptr ID ) { return ( ID >> 16 ) & 0xFFFF; }
+    static quintptr pack( unsigned Type, unsigned Exercise = 0, unsigned Stats = 0 ) { return ( Type & 0xF ) | ( ( Exercise & 0xFFF ) << 4 ) | ( ( Stats & 0xFFFF ) << 16 ); }
+    std::vector<Item*> mItems;
+    Type mActivity;
+  }; // StatisticsModel
   //! \todo Move this to MuTraMIDI with std::threads instad of QThread.
   class Player : public QThread {
     Q_OBJECT
