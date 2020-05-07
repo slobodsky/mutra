@@ -1,5 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
+  <file>images/music_trainer.svg</file>
+  <file>images/music_trainer-dark.svg</file>
   <file>images/metronome.svg</file>
   <file>images/exercise.svg</file>
   <file>images/g-clef.svg</file>

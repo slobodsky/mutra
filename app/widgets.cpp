@@ -810,8 +810,8 @@ namespace MuTraWidgets {
   } // pan_changed( int, int )
   
   StatisticsModel::Item::~Item() { for( Item* It : mSubItems ) delete It; } // ~Item()
-  QVariant StatisticsModel::Item::data( int Col ) const { qDebug() << "Get data item " << mName << "col" << Col; return Col == 0 ? QVariant( mName ) : QVariant(); }
-  QVariant StatisticsModel::Item::icon() const { qDebug() << "Get icon for item " << mName; return QVariant(); }
+  QVariant StatisticsModel::Item::data( int Col ) const { return Col == 0 ? QVariant( mName ) : QVariant(); }
+  QVariant StatisticsModel::Item::icon() const { return QVariant(); }
   QVariant StatisticsModel::StatsItem::data( int Col ) const {
     if( mStat.Result < ExerciseSequence::NoteError )
       switch( Col ) {
@@ -1025,6 +1025,7 @@ namespace MuTraWidgets {
       }
     }
     connect( &mTimer, SIGNAL( timeout() ), SLOT( timer() ) );
+    setWindowIcon( QIcon( ":/images/music_trainer.svg" ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
     if( mPlayer ) delete mPlayer;
