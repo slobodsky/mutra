@@ -18,7 +18,18 @@ namespace MuTraMIDI {
     FileInStream Stream;
   }; // FileInputDevice
 
-#ifdef USE_ALSA_INPUT
+#ifdef USE_ALSA_BACKEND
+  class ALSABackend : public MIDIBackend {
+  public:
+    ALSABackend();
+    ~ALSABackend();
+    virtual std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
+    virtual Sequencer* get_sequencer( const std::string& URI = std::string() );
+    virtual InputDevice* get_input( const std::string& URI = std::string() );
+  private:
+    snd_seq_t* mSeq;
+  }; // ALSABackend
+
   //! \todo Use separate thread & midi_input blocking function.
   class ALSAInputDevice : public InputDevice {
   public:
@@ -42,6 +53,6 @@ namespace MuTraMIDI {
     std::queue<snd_seq_event_t*> mQueue;
     std::mutex mQueueMutex;
     std::condition_variable mQueueCondition;
-  }; // RtMIDIInputDevice
-#endif // USE_ALSA_INPUT
+  }; // ALSAInputDevice
+#endif // USE_ALSA_BACKEND
 } // MuTraMIDI

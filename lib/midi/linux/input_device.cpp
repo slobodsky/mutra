@@ -3,9 +3,9 @@
 #include "Sequencer.hpp"
 #ifdef USE_RTMIDI_BACKEND
 #include "../rtmidi_backend.hpp"
+#endif // USE_RTMIDI_BACKEND
 #include <sstream>
 using std::stringstream;
-#endif // USE_RTMIDI_BACKEND
 #include "../midi_events.hpp"
 using std::ios;
 using std::memcpy;
@@ -20,9 +20,88 @@ using std::lock_guard;
 using std::vector;
 
 namespace MuTraMIDI {
+#ifdef USE_ALSA_BACKEND
+  ALSABackend::ALSABackend() : MIDIBackend( "alsa", "ALSA" ) {
+    if( snd_seq_open( &mSeq, "default", SND_SEQ_OPEN_DUPLEX, 0 ) < 0 )
+      cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
+  } // ALSABackend()
+  ALSABackend::~ALSABackend() { snd_seq_close( mSeq ); }
+#define MUTRA_DEBUG
+  vector<Sequencer::Info> ALSABackend::list_devices( DeviceType Filter ) {
+    vector<Sequencer::Info> Result;
+    if( !mSeq ) return Result;
+    int InCaps = SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ;
+    int OutCaps = SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE;
+    snd_seq_client_info_t* ClientInfo = nullptr;
+    if( snd_seq_client_info_malloc( &ClientInfo ) < 0 ) cerr << "Can't allocate memory ALSA client info." << endl;
+    else {
+      snd_seq_port_info_t* PortInfo = nullptr;
+      if( snd_seq_port_info_malloc( &PortInfo ) < 0 ) cerr << "Can't allocate memory ALSA port info." << endl;
+      else {
+	snd_seq_client_info_set_client( ClientInfo, -1 );
+	while( snd_seq_query_next_client( mSeq, ClientInfo ) >= 0 ) {
+	  int Client = snd_seq_client_info_get_client( ClientInfo );
+	  string ClientName = snd_seq_client_info_get_name( ClientInfo );
+#ifdef MUTRA_DEBUG
+	  cout << "ALSA Client " << Client << ": " << ClientName << endl;
+#endif // MUTRA_DEBUG
+	  snd_seq_port_info_set_client( PortInfo, Client );
+	  snd_seq_port_info_set_port( PortInfo, -1 );
+	  while( snd_seq_query_next_port( mSeq, PortInfo ) >= 0 ) {
+	    int Caps = snd_seq_port_info_get_capability( PortInfo );
+#ifdef MUTRA_DEBUG
+	    cout << "port " << snd_seq_port_info_get_port( PortInfo ) << ": " << snd_seq_port_info_get_name( PortInfo ) << " type: " << std::hex << snd_seq_port_info_get_type( PortInfo )
+		 << " caps: " << Caps << std::dec << endl;
+#endif // MUTRA_DEBUG
+	    if( snd_seq_port_info_get_type( PortInfo ) & SND_SEQ_PORT_TYPE_MIDI_GENERIC )
+	      if( ( Filter == Both && ( ( Caps & ( InCaps | OutCaps ) ) == ( InCaps | OutCaps ) ) )
+		  || ( ( Filter & Output ) && ( ( Caps & OutCaps ) == OutCaps ) ) || ( ( Filter & Input ) && ( ( Caps & InCaps ) == InCaps ) ) ) {
+		stringstream URI;
+		URI << schema() << "://" << Client;
+		int Port = snd_seq_port_info_get_port( PortInfo );
+		if( Port ) URI << ":" << Port;
+		Sequencer::Info I( ClientName + " : " + snd_seq_port_info_get_name( PortInfo ), URI.str() );
+#ifdef MUTRA_DEBUG
+		cout << "\tPort: " << I.name() << " " << I.uri() << endl;
+#endif // MUTRA_DEBUG
+		Result.push_back( I );
+	      }
+	  }
+	}
+      }
+      snd_seq_port_info_free( PortInfo );
+    }
+    snd_seq_client_info_free( ClientInfo );
+    return Result;
+  } // list_devices( DeviceType )
+#undef MUTRA_DEBUG
+  Sequencer* ALSABackend::get_sequencer( const std::string& URI ) {
+    if( URI.empty() ) return new ALSASequencer();
+    if( URI.substr( 0, 7 ) == "alsa://" ) { //!< \todo Break down the URL && compare the schema to the schema() method. (Implement some URI parser)
+      size_t Pos = 0;
+      int Client = stoi( URI.substr( 7 ), &Pos );
+      int Port = 0;
+      if( Pos < URI.length()-7 ) Port = stoi( URI.substr( Pos+7+1 ) );
+      return new ALSASequencer( Client, Port );
+    }
+    return nullptr;
+  } // get_sequencer( const std::string& )
+
+  InputDevice* ALSABackend::get_input( const std::string& URI ) {
+    if( URI.empty() ) return new ALSAInputDevice();
+    if( URI.substr( 0, 7 ) == "alsa://" ) {
+      size_t Pos = 0;
+      int Client = stoi( URI.substr( 7 ), &Pos );
+      int Port = 0;
+      if( Pos < URI.length()-7 ) Port = stoi( URI.substr( Pos+7+1 ) );
+      return new ALSAInputDevice( Client, Port );
+    }
+    return nullptr;
+  } // get_input( const std::string& )
+#endif // USE_ALSA_BACKEND
+
   vector<InputDevice::Info> InputDevice::get_available_devices( const string& Backend ) {
-    vector<InputDevice::Info> Result;
-    if( Backend.empty() || Backend == "alsa" ) Result = ALSASequencer::get_alsa_devices( true );
+    vector<InputDevice::Info> Result = MIDIBackend::get_manager().list_devices( MIDIBackend::Input );
 #ifdef USE_RTMIDI_BACKEND
     if( Backend.empty() || Backend == "rtmidi" ) {
       RtMidiIn In;
@@ -36,30 +115,17 @@ namespace MuTraMIDI {
       }
     }
 #endif // USE_RTMIDI_BACKEND
-#ifdef MUTRA_BACKENDS
-    vector<InputDevice::Info> Tmp = MIDIBackend::get_manager().list_devices( MIDIBackend::Input );
-    Result.insert( Result.end(), Tmp.begin(), Tmp.end() );
-#endif // MUTRA_BACKENDS
     return Result;
   } // get_available_devices( const string& )
 
   InputDevice* InputDevice::get_instance( const std::string& URI ) {
-#ifdef MUTRA_BACKENDS
     if( InputDevice* Result = MIDIBackend::get_manager().get_input( URI ) ) return Result;
-#endif // MUTRA_BACKENDS
-    if( URI.substr( 0, 7 ) == "alsa://" ) {
-      size_t Pos = 0;
-      int Client = stoi( URI.substr( 7 ), &Pos );
-      int Port = 0;
-      if( Pos < URI.length()-7 ) Port = stoi( URI.substr( Pos+7+1 ) );
-      return new ALSAInputDevice( Client, Port );
-    }
-    if( URI.substr( 0, 7 ) == "file://" )
-      return new FileInputDevice( URI.substr( 7 ) );
 #ifdef USE_RTMIDI_BACKEND
     if( URI.substr( 0, 9 ) == "rtmidi://" )
       return new RtMIDIInputDevice( atoi( URI.substr( 9 ).c_str() ) );
 #endif // USE_RTMIDI_BACKEND
+    if( URI.substr( 0, 7 ) == "file://" )
+      return new FileInputDevice( URI.substr( 7 ) );
     cerr << "Unknown schema in device URI: [" << URI << "], maybe missing backend." << endl;
     return nullptr;
   } // get_instance( const std::string& )
@@ -73,7 +139,7 @@ namespace MuTraMIDI {
       cout << endl;
     }
   } // start()
-#ifdef USE_ALSA_INPUT
+#ifdef USE_ALSA_BACKEND
   static Event::TimeuS alsa_time_to_us( const snd_seq_real_time_t& Time ) { return Time.tv_sec * Event::TimeuS( 1000000 ) + Time.tv_nsec / 1000; }
 
   ALSAInputDevice::ALSAInputDevice( int InClient, int InPort ) : mSeq( nullptr ), mClient( -1 ), mPort( -1 ), mInClient( InClient ), mInPort( InPort ), mTime( 0 ) {
@@ -269,5 +335,5 @@ namespace MuTraMIDI {
     lock_guard<mutex> Lock( mQueueMutex );
     mQueue.push( Event );
   } // put_event( snd_seq_event_t* )
-#endif // USE_ALSA_INPUT
+#endif // USE_ALSA_BACKEND
 } // MuTraMIDI

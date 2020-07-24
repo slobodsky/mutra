@@ -1,7 +1,7 @@
 find_package( ALSA )
 if( ALSA_FOUND )
   message( "USE_ALSA_BACKEND" )
-  add_compile_definitions( USE_ALSA_INPUT )
+  add_compile_definitions( USE_ALSA_BACKEND )
   set( EXTRA_LIBRARIES "asound" )
   # set( BACKENDS "alsa_backend.cpp" )
 endif()

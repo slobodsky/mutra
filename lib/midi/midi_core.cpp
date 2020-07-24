@@ -24,6 +24,10 @@ using std::cout;
 using std::cerr;
 #include <sys/time.h>
 #include <unistd.h>
+#ifdef USE_ALSA_BACKEND
+#include "linux/Sequencer.hpp"
+#include "linux/input_device.hpp"
+#endif
 
 namespace MuTraMIDI {
   uint64_t get_time_us() {
@@ -181,9 +185,11 @@ namespace MuTraMIDI {
     return nullptr;
   } // get_event( InStream&, size_t& )
 
-#ifdef MUTRA_BACKENDS
   MIDIBackend::Manager::Manager() {
-    //! \todo Create all known backends here.
+    //! \todo Create all known backends here & figure out a way to do it in them (e.g. loadable plugins).
+#ifdef USE_ALSA_BACKEND
+    mBackends.push_back( new ALSABackend );
+#endif // USE_ALSA_BACKEND
   } // Manager()
   MIDIBackend::Manager::~Manager() { while( !mBackends.empty() ) delete mBackends.back(); } // ~Manager()
   vector<Sequencer::Info> MIDIBackend::Manager::list_devices( DeviceType Filter ) const {
@@ -191,6 +197,12 @@ namespace MuTraMIDI {
     for( MIDIBackend* Backend : mBackends ) append( Result, Backend->list_devices( Filter ) );
     return Result;
   } // list_devices( DeviceType 
+  MIDIBackend* MIDIBackend::Manager::get_backend( const std::string& Schema ) const {
+    if( Schema.empty() && !mBackends.empty() ) return mBackends.front();
+    for( MIDIBackend* Back : mBackends ) if( Back && Back->schema() == Schema ) return Back;
+    return nullptr;
+  } // get_backend( const std::string& )
+
   Sequencer* MIDIBackend::Manager::get_sequencer( const std::string& URI ) const {
     for( MIDIBackend* Backend : mBackends ) //! \todo If URI is empty return some default device. Don't let the first backend do it.
       if( Sequencer* Seq = Backend->get_sequencer( URI ) )
@@ -218,6 +230,6 @@ namespace MuTraMIDI {
   } // remove_backend( MIDIBackend* )
   MIDIBackend::Manager MIDIBackend::sManager;
 
+  MIDIBackend::MIDIBackend( const std::string& Schema, const std::string& Name ) : mSchema( Schema ), mName( Name ) { if( mName.empty() ) mName = mSchema; }
   MIDIBackend::~MIDIBackend() { get_manager().remove_backend( this ); }
-#endif // MUTRA_BACKENDS
 } // MuTraMIDI

@@ -214,8 +214,6 @@ namespace MuTraMIDI {
     std::string what() const { return Description; }
   }; // MIDIException
 
-#define MUTRA_BACKENDS
-#ifdef MUTRA_BACKENDS
   //! Бэкенды MIDI
   class MIDIBackend {
   public:
@@ -227,7 +225,7 @@ namespace MuTraMIDI {
       Manager();
       ~Manager();
       const std::vector<MIDIBackend*> list_backends() const { return mBackends; }
-      MIDIBackend* get_backend( const std::string& Schema ) const;
+      MIDIBackend* get_backend( const std::string& Schema = std::string() ) const;
       void add_backend( MIDIBackend* NewBackend );
       void remove_backend( MIDIBackend* OldBackend );
       std::vector<Sequencer::Info> list_devices( DeviceType Filter = All ) const;
@@ -237,7 +235,12 @@ namespace MuTraMIDI {
       MIDIBackend::List mBackends;
     }; // Manager
     static Manager& get_manager() { return sManager; }
+  protected:
+    MIDIBackend( const std::string& Schema, const std::string& Name = std::string() );
+  public:
     virtual ~MIDIBackend();
+    const std::string& name() const { return mName; }
+    const std::string& schema() const { return mSchema; }
     virtual std::vector<Sequencer::Info> list_devices( DeviceType Filter = All ) { return std::vector<Sequencer::Info>(); }
     virtual Sequencer* get_sequencer( const std::string& URI = std::string() ) { return nullptr; }
     virtual InputDevice* get_input( const std::string& URI = std::string() ) { return nullptr; }
@@ -246,6 +249,5 @@ namespace MuTraMIDI {
     std::string mName;
     std::string mSchema;
   }; // MIDIBackend
-#endif // MUTRA_BACKENDS
 } // MuTraMIDI
 #endif // MUTRA_MIDI_CORE_HPP

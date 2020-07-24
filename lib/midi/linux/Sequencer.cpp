@@ -15,71 +15,13 @@ using std::stringstream;
 typedef unsigned char BYTE;
 
 namespace MuTraMIDI {
-  vector<Sequencer::Info> ALSASequencer::get_alsa_devices( bool Input ) {
-    vector<Sequencer::Info> Result;
-    int TargetCaps = Input ? SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ : SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE;
-    snd_seq_t* Seq = nullptr;
-    if( snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 ) < 0 ) {
-      cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
-      return Result;
-    }
-    snd_seq_client_info_t* ClientInfo = nullptr;
-    if( snd_seq_client_info_malloc( &ClientInfo ) < 0 ) cerr << "Can't allocate memory ALSA client info." << endl;
-    else {
-      snd_seq_port_info_t* PortInfo = nullptr;
-      if( snd_seq_port_info_malloc( &PortInfo ) < 0 ) cerr << "Can't allocate memory ALSA port info." << endl;
-      else {
-	snd_seq_client_info_set_client( ClientInfo, -1 );
-	while( snd_seq_query_next_client( Seq, ClientInfo ) >= 0 ) {
-	  int Client = snd_seq_client_info_get_client( ClientInfo );
-	  string ClientName = snd_seq_client_info_get_name( ClientInfo );
-	  cout << "ALSA Client " << Client << ": " << ClientName << endl;
-	  snd_seq_port_info_set_client( PortInfo, Client );
-	  snd_seq_port_info_set_port( PortInfo, -1 );
-	  while( snd_seq_query_next_port( Seq, PortInfo ) >= 0 ) {
-	    cout << "port " << snd_seq_port_info_get_port( PortInfo ) << ": " << snd_seq_port_info_get_name( PortInfo ) << " type: " << std::hex << snd_seq_port_info_get_type( PortInfo )
-		 << " caps: " << snd_seq_port_info_get_capability( PortInfo ) << std::dec << endl;
-	    if( ( snd_seq_port_info_get_type( PortInfo ) & SND_SEQ_PORT_TYPE_MIDI_GENERIC ) && ( snd_seq_port_info_get_capability( PortInfo ) & TargetCaps ) == TargetCaps )
-	    {
-	      stringstream URI;
-	      URI << "alsa://" << Client;
-	      int Port = snd_seq_port_info_get_port( PortInfo );
-	      if( Port ) URI << ":" << Port;
-	      Sequencer::Info I( ClientName + " : " + snd_seq_port_info_get_name( PortInfo ), URI.str() );
-	      cout << "\tPort: " << I.name() << " " << I.uri() << endl;
-	      Result.push_back( I );
-	    }
-	  }
-	}
-      }
-      snd_seq_port_info_free( PortInfo );
-    }
-    snd_seq_client_info_free( ClientInfo );
-    snd_seq_close( Seq );
-    return Result;
-  } // get_alsa_devices( bool )
-
   vector<Sequencer::Info> Sequencer::get_available_devices( const string& Backend ) {
-    vector<Sequencer::Info> Result;
-    if( Backend.empty() || Backend == "alsa" ) {
-      Result = ALSASequencer::get_alsa_devices();
-    }
-#ifdef MUTRA_BACKENDS
-    vector<Sequencer::Info> Tmp = MIDIBackend::get_manager().list_devices( MIDIBackend::Output );
-    Result.insert( Result.end(), Tmp.begin(), Tmp.end() );
-#endif // MUTRA_BACKENDS
-    return Result;
+    if( Backend.empty() ) return MIDIBackend::get_manager().list_devices( MIDIBackend::Output );
+    if( MIDIBackend* Back = MIDIBackend::get_manager().get_backend( Backend ) ) return Back->list_devices();
+    return vector<Sequencer::Info>();
   } // get_available_devices( const string& )
   Sequencer* Sequencer::get_instance( const string& URI ) {
-#ifdef MUTRA_BACKENDS
-    if( Sequencer* Result = MIDIBackend::get_manager().get_sequencer( URI ) ) return Result;
-#endif // MUTRA_BACKENDS
-    if( URI.empty() ) return new ALSASequencer();
-    if( URI.substr( 0, 7 ) == "alsa://" ) {
-      int Client = atoi( URI.substr( 7 ).c_str() );
-      return new ALSASequencer( Client );
-    }
-    return nullptr;
+    return MIDIBackend::get_manager().get_sequencer( URI );
   } // get_instance( const string& URI )
 
   LinuxSequencer::LinuxSequencer( ostream& Device0 ) : Device( Device0 )
@@ -173,6 +115,7 @@ namespace MuTraMIDI {
     TotalDiff += Diff;
   } // wait_for_usec( double )
 
+#ifdef USE_ALSA_BACKEND
   ALSASequencer::ALSASequencer( int OutClient0, int OutPort0, ostream& Device0 ) : LinuxSequencer( Device0 ), Seq( nullptr ), Client( 0 ), Port( 0 ), OutClient( OutClient0 ), OutPort( OutPort0 )
   {
     int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_OUTPUT, 0 );
@@ -309,4 +252,5 @@ namespace MuTraMIDI {
   {
     LinuxSequencer::start();
   } // start()
+#endif // USE_ALSA_BACKEND
 } // MuTraMIDI

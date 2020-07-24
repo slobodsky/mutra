@@ -33,6 +33,7 @@ namespace MuTraMIDI {
     void wait_for_usec( int64_t WaitMicroSecs ) override;
   }; // LinuxSequencer
 
+#ifdef USE_ALSA_BACKEND
   class ALSASequencer : public LinuxSequencer
   {
   public:
@@ -55,5 +56,6 @@ namespace MuTraMIDI {
     int OutClient;
     int OutPort;
   }; // ALSASequencer
+#endif // USE_ALSA_BACKEND
 } // MuTraMIDI
 #endif // LINUX_SEQUENCER_HPP
