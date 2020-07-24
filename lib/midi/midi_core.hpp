@@ -196,8 +196,8 @@ namespace MuTraMIDI {
     void add_client( Client& Cli );
     void remove_client( Client& Cli );
     const std::vector<Client*> clients() const { return Clients; }
-    virtual void start() {}
-    virtual void stop() {}
+    virtual void start();
+    virtual void stop();
   protected:
     void event_received( const Event& Ev );
   private:
@@ -212,5 +212,20 @@ namespace MuTraMIDI {
     MIDIException( std::string Description0 ) : Description( Description0 ) {}
     std::string what() const { return Description; }
   }; // MIDIException
+
+#ifdef MUTRA_BACKENDS
+  //! Бэкенды MIDI
+  class MIDIBackend {
+  public:
+    enum DeviceType { Input = 1, Output = 2, All = 3 };
+    class Manager {
+      static std::vector<MIDIBackend*> available_backends();
+      static MIDIBackend* get_backend( const std::string& Schema );
+    }; // Manager
+    const std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
+  private:
+    static
+  }; // MIDIBackend
+#endif // MUTRA_BACKENDS
 } // MuTraMIDI
 #endif // MUTRA_MIDI_CORE_HPP

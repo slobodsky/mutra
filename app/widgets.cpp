@@ -220,7 +220,7 @@ namespace MuTraWidgets {
       int DrawTracks = TracksCount < 4 ? TracksCount : 4;
       NotesListBuilder NL( TracksCount );
       Sequence->play( NL );
-      int Div = Sequence->division() / ( 4 / ( 1 << NL.Measure ) );
+      int Div = Sequence->division() * ( 4.0 / ( 1 << NL.Measure ) );
       qreal K = Div / 32.0;
       qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
       qreal BarH = H / DrawTracks;

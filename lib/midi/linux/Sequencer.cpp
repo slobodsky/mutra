@@ -15,41 +15,54 @@ using std::stringstream;
 typedef unsigned char BYTE;
 
 namespace MuTraMIDI {
+  vector<Sequencer::Info> ALSASequencer::get_alsa_devices( bool Input ) {
+    vector<Sequencer::Info> Result;
+    int TargetCaps = Input ? SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ : SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE;
+    snd_seq_t* Seq = nullptr;
+    if( snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 ) < 0 ) {
+      cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
+      return Result;
+    }
+    snd_seq_client_info_t* ClientInfo = nullptr;
+    if( snd_seq_client_info_malloc( &ClientInfo ) < 0 ) cerr << "Can't allocate memory ALSA client info." << endl;
+    else {
+      snd_seq_port_info_t* PortInfo = nullptr;
+      if( snd_seq_port_info_malloc( &PortInfo ) < 0 ) cerr << "Can't allocate memory ALSA port info." << endl;
+      else {
+	snd_seq_client_info_set_client( ClientInfo, -1 );
+	while( snd_seq_query_next_client( Seq, ClientInfo ) >= 0 ) {
+	  int Client = snd_seq_client_info_get_client( ClientInfo );
+	  string ClientName = snd_seq_client_info_get_name( ClientInfo );
+	  cout << "ALSA Client " << Client << ": " << ClientName << endl;
+	  snd_seq_port_info_set_client( PortInfo, Client );
+	  snd_seq_port_info_set_port( PortInfo, -1 );
+	  while( snd_seq_query_next_port( Seq, PortInfo ) >= 0 ) {
+	    cout << "port " << snd_seq_port_info_get_port( PortInfo ) << ": " << snd_seq_port_info_get_name( PortInfo ) << " type: " << std::hex << snd_seq_port_info_get_type( PortInfo )
+		 << " caps: " << snd_seq_port_info_get_capability( PortInfo ) << std::dec << endl;
+	    if( ( snd_seq_port_info_get_type( PortInfo ) & SND_SEQ_PORT_TYPE_MIDI_GENERIC ) && ( snd_seq_port_info_get_capability( PortInfo ) & TargetCaps ) == TargetCaps )
+	    {
+	      stringstream URI;
+	      URI << "alsa://" << Client;
+	      int Port = snd_seq_port_info_get_port( PortInfo );
+	      if( Port ) URI << ":" << Port;
+	      Sequencer::Info I( ClientName + " : " + snd_seq_port_info_get_name( PortInfo ), URI.str() );
+	      cout << "\tPort: " << I.name() << " " << I.uri() << endl;
+	      Result.push_back( I );
+	    }
+	  }
+	}
+      }
+      snd_seq_port_info_free( PortInfo );
+    }
+    snd_seq_client_info_free( ClientInfo );
+    snd_seq_close( Seq );
+    return Result;
+  } // get_alsa_devices( bool )
+
   vector<Sequencer::Info> Sequencer::get_available_devices( const string& Backend ) {
     vector<Sequencer::Info> Result;
     if( Backend.empty() || Backend == "alsa" ) {
-      snd_seq_t* Seq = nullptr;
-      if( snd_seq_open( &Seq, "default", SND_SEQ_OPEN_OUTPUT, 0 ) < 0 )	cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
-      else {
-	snd_seq_client_info_t* ClientInfo = nullptr;
-	if( snd_seq_client_info_malloc( &ClientInfo ) < 0 ) cerr << "Can't allocate memory ALSA client info." << endl;
-	else {
-	  snd_seq_port_info_t* PortInfo = nullptr;
-	  if( snd_seq_port_info_malloc( &PortInfo ) < 0 ) cerr << "Can't allocate memory ALSA port info." << endl;
-	  else {
-	    snd_seq_client_info_set_client( ClientInfo, -1 );
-	    while( snd_seq_query_next_client( Seq, ClientInfo ) >= 0 ) {
-	      int Client = snd_seq_client_info_get_client( ClientInfo );
-	      snd_seq_port_info_set_client( PortInfo, Client );
-	      snd_seq_port_info_set_port( PortInfo, -1 );
-	      while( snd_seq_query_next_port( Seq, PortInfo ) >= 0 ) {
-		if( ( snd_seq_port_info_get_type( PortInfo ) & SND_SEQ_PORT_TYPE_MIDI_GENERIC )
-		    && ( snd_seq_port_info_get_capability( PortInfo ) & ( SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE ) ) == ( SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE ) ) {
-		  stringstream URI;
-		  URI << "alsa://" << Client;
-		  int Port = snd_seq_port_info_get_port( PortInfo );
-		  if( Port ) URI << ":" << Port;
-		  Info I( snd_seq_port_info_get_name( PortInfo ), URI.str() );
-		  cout << "Sequencer port: " << I.name() << " " << I.uri() << endl;
-		  Result.push_back( I );
-		}
-	      }
-	    }
-	    snd_seq_port_info_free( PortInfo );
-	  }
-	  snd_seq_client_info_free( ClientInfo );
-	}
-      }
+      Result = ALSASequencer::get_alsa_devices();
     }
     return Result;
   } // get_available_devices( const string& )
@@ -153,19 +166,19 @@ namespace MuTraMIDI {
     TotalDiff += Diff;
   } // wait_for_usec( double )
 
-  ALSASequencer::ALSASequencer( int OutClient0, int OutPort0, ostream& Device0 ) : LinuxSequencer( Device0 ), OutClient( OutClient0 ), OutPort( OutPort0 )
+  ALSASequencer::ALSASequencer( int OutClient0, int OutPort0, ostream& Device0 ) : LinuxSequencer( Device0 ), Seq( nullptr ), Client( 0 ), Port( 0 ), OutClient( OutClient0 ), OutPort( OutPort0 )
   {
-    int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_DUPLEX, 0 );
-    if( Err < 0 ) cerr << "Can't open sequencer." << Err << endl;
+    int Err = snd_seq_open( &Seq, "default", SND_SEQ_OPEN_OUTPUT, 0 );
+    if( Err < 0 ) cerr << "Can't open output sequencer." << Err << endl;
     Err = snd_seq_set_client_name( Seq, "Wholeman" );
-    if( Err < 0 ) cerr << "Can't set client name." << Err << endl;
+    if( Err < 0 ) cerr << "Can't set output client name." << Err << endl;
     Client = snd_seq_client_id( Seq );
-    if( Client < 0 ) cerr << "Can't get client id." << Err << endl;
+    if( Client < 0 ) cerr << "Can't get output client id." << Err << endl;
     else cerr << "Client: " << Client << endl;
-
-    Err = snd_seq_create_simple_port( Seq, "WholemanOut", 0, SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION );
-    if( Err < 0 ) cerr << "Can't create port." << Err << endl;
-    snd_seq_connect_to( Seq, 0, OutClient, 0 );
+    Port = snd_seq_create_simple_port( Seq, "MuTra Out", SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ, SND_SEQ_PORT_TYPE_APPLICATION );
+    if( Port < 0 ) cerr << "Can't create output port." << Port << endl;
+    //! \todo Use connection below & send events to the subscribed clients instead of the fixed destination:
+    snd_seq_connect_to( Seq, Port, OutClient, OutPort );
   } // конструктор по девайсу
   ALSASequencer::~ALSASequencer()
   {
@@ -184,11 +197,11 @@ namespace MuTraMIDI {
     Event.data.note.note = Note;
     Event.data.note.velocity = Velocity;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );
-    if( Err < 0 ) cerr << "Can't send note on: " << snd_strerror( Err ) << endl;
+    if( Err < 0 ) cerr << "Can't send note on from " << Client << ':' << Port << " to " << OutClient << ':' << OutPort << ": "  << snd_strerror( Err ) << endl;
     // else cerr << "Note on sent." << endl;
   } // note_on( int, int, int ) 
   void ALSASequencer::note_off( int Channel, int Note, int Velocity )
@@ -203,7 +216,7 @@ namespace MuTraMIDI {
     Event.data.note.note = Note;
     Event.data.note.velocity = Velocity;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );
@@ -222,7 +235,7 @@ namespace MuTraMIDI {
     Event.data.note.note = Note;
     Event.data.note.velocity = Velocity;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );
@@ -240,7 +253,7 @@ namespace MuTraMIDI {
     Event.data.control.channel = Channel;
     Event.data.control.value = NewProgram;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );
@@ -259,7 +272,7 @@ namespace MuTraMIDI {
     Event.data.control.param = Control;
     Event.data.control.value = Value;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );
@@ -277,7 +290,7 @@ namespace MuTraMIDI {
     Event.data.control.channel = Channel;
     Event.data.control.value = Bend;
     Event.source.client = Client;
-    Event.source.port = 0;
+    Event.source.port = Port;
     Event.dest.client = OutClient;
     Event.dest.port = OutPort;
     int Err = snd_seq_event_output_direct( Seq, &Event );

@@ -111,7 +111,7 @@ namespace MuTraTrain {
   } // key_signature( int, bool )
   void ExerciseSequence::add_original_event( Event* NewEvent )
   {
-    int OriginalAlignment = StartPoint % int( Numerator * division() / (( 1 << Denominator ) / 4 ) );
+    int OriginalAlignment = StartPoint % int( Numerator * division() / (( 1 << Denominator ) / 4.0 ) );
     int ClockFromStart = Clock - StartPoint + OriginalAlignment;
     if( Tracks.empty() ) add_track();
 #ifdef MUTRA_DEBUG
@@ -149,9 +149,9 @@ namespace MuTraTrain {
 	PlayedStartuS = get_time_us();
 	PlayedStart = EvClock;
 	if( align_start() > 0 ) { //! \todo Make this ugly code clean.
-	  int BaruS = int( tempo() / ( 4.0 / ( 1 << Denominator ) ) );
+	  int BaruS = int( tempo() * ( 4.0 / ( 1 << Denominator ) ) );
 	  int Offset = ( PlayedStartuS - align_start() ) % BaruS;
-	  int OriginalToBar = OriginalStart % int( division() / ( 4.0 / ( 1 << Denominator ) ) ); //!< \todo Сделать функции для подсчёта микросекунд и MIDI-клоков в доле и такте.
+	  int OriginalToBar = OriginalStart % int( division() * ( 4.0 / ( 1 << Denominator ) ) ); //!< \todo Сделать функции для подсчёта микросекунд и MIDI-клоков в доле и такте.
 	  Offset -= OriginalToBar * tempo() / division();
 	  if( Offset > BaruS / 2 ) Offset -= BaruS;
 	  cout << "Align to " << Offset << " µs, PlayedStart " << PlayedStartuS << " align: " << align_start() << " tempo: " << tempo() << " diff: " << PlayedStartuS - align_start() << endl;

@@ -44,7 +44,7 @@ namespace MuTraTrain {
   } // MetronomeOptions()
   void Metronome::start() {
     //! \todo Send tempo & meter events 
-    mTimer.start( mTempouS );
+    mTimer.start( mTempouS * ( 4.0 / ( 1 << mOptions.measure() ) ) );
     timer( 0, mTimer.start_time(), mTimer.start_time() );
   }
   void Metronome::stop() { mTimer.stop(); }
