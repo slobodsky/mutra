@@ -180,4 +180,44 @@ namespace MuTraMIDI {
     cerr << "Unknown event " << hex << Status << " last count " << dec << Count << endl;
     return nullptr;
   } // get_event( InStream&, size_t& )
+
+#ifdef MUTRA_BACKENDS
+  MIDIBackend::Manager::Manager() {
+    //! \todo Create all known backends here.
+  } // Manager()
+  MIDIBackend::Manager::~Manager() { while( !mBackends.empty() ) delete mBackends.back(); } // ~Manager()
+  vector<Sequencer::Info> MIDIBackend::Manager::list_devices( DeviceType Filter ) const {
+    vector<Sequencer::Info> Result;
+    for( MIDIBackend* Backend : mBackends ) append( Result, Backend->list_devices( Filter ) );
+    return Result;
+  } // list_devices( DeviceType 
+  Sequencer* MIDIBackend::Manager::get_sequencer( const std::string& URI ) const {
+    for( MIDIBackend* Backend : mBackends ) //! \todo If URI is empty return some default device. Don't let the first backend do it.
+      if( Sequencer* Seq = Backend->get_sequencer( URI ) )
+	return Seq;
+    return nullptr;
+  } // get_sequencer( const std::string& )
+  InputDevice* MIDIBackend::Manager::get_input( const std::string& URI ) const {
+    for( MIDIBackend* Backend : mBackends ) //! \todo If URI is empty return some default device. Don't let the first backend do it.
+      if( InputDevice* Seq = Backend->get_input( URI ) )
+	return Seq;
+    return nullptr;
+  } // get_input( const std::string& )
+
+  void MIDIBackend::Manager::add_backend( MIDIBackend* NewBackend ) {
+    if( find( mBackends.begin(), mBackends.end(), NewBackend ) == mBackends.end() )
+      mBackends.push_back( NewBackend );
+  } // add_backend( MIDIBackend* )
+  void MIDIBackend::Manager::remove_backend( MIDIBackend* OldBackend ) {
+    if( mBackends.empty() ) return;
+    if( mBackends.back() == OldBackend ) mBackends.pop_back();
+    else {
+      auto It = find( mBackends.begin(), mBackends.end(), OldBackend );
+      if( It != mBackends.end() ) mBackends.erase( It );
+    }
+  } // remove_backend( MIDIBackend* )
+  MIDIBackend::Manager MIDIBackend::sManager;
+
+  MIDIBackend::~MIDIBackend() { get_manager().remove_backend( this ); }
+#endif // MUTRA_BACKENDS
 } // MuTraMIDI

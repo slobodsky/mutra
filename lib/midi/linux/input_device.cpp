@@ -36,10 +36,17 @@ namespace MuTraMIDI {
       }
     }
 #endif // USE_RTMIDI_BACKEND
+#ifdef MUTRA_BACKENDS
+    vector<InputDevice::Info> Tmp = MIDIBackend::get_manager().list_devices( MIDIBackend::Input );
+    Result.insert( Result.end(), Tmp.begin(), Tmp.end() );
+#endif // MUTRA_BACKENDS
     return Result;
   } // get_available_devices( const string& )
 
   InputDevice* InputDevice::get_instance( const std::string& URI ) {
+#ifdef MUTRA_BACKENDS
+    if( InputDevice* Result = MIDIBackend::get_manager().get_input( URI ) ) return Result;
+#endif // MUTRA_BACKENDS
     if( URI.substr( 0, 7 ) == "alsa://" ) {
       size_t Pos = 0;
       int Client = stoi( URI.substr( 7 ), &Pos );

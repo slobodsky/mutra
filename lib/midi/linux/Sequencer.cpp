@@ -64,9 +64,16 @@ namespace MuTraMIDI {
     if( Backend.empty() || Backend == "alsa" ) {
       Result = ALSASequencer::get_alsa_devices();
     }
+#ifdef MUTRA_BACKENDS
+    vector<Sequencer::Info> Tmp = MIDIBackend::get_manager().list_devices( MIDIBackend::Output );
+    Result.insert( Result.end(), Tmp.begin(), Tmp.end() );
+#endif // MUTRA_BACKENDS
     return Result;
   } // get_available_devices( const string& )
   Sequencer* Sequencer::get_instance( const string& URI ) {
+#ifdef MUTRA_BACKENDS
+    if( Sequencer* Result = MIDIBackend::get_manager().get_sequencer( URI ) ) return Result;
+#endif // MUTRA_BACKENDS
     if( URI.empty() ) return new ALSASequencer();
     if( URI.substr( 0, 7 ) == "alsa://" ) {
       int Client = atoi( URI.substr( 7 ).c_str() );

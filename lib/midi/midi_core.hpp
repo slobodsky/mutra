@@ -19,6 +19,7 @@
 namespace MuTraMIDI {
   class Event;
   uint64_t get_time_us();
+  template<class T> inline std::vector<T>& append( std::vector<T>& Vector, const std::vector<T>& Tail ) { Vector.insert( Vector.end(), Tail.begin(), Tail.end() ); return Vector; }
 
   //! \note Поскольку MIDI-файлы разделены на "чанки" известной длины, а в некоторых сообщениях явно указана длина, нам может быть необходимо знать, сколько байт было получено/записано для значений
   //! переменной длины.
@@ -213,18 +214,37 @@ namespace MuTraMIDI {
     std::string what() const { return Description; }
   }; // MIDIException
 
+#define MUTRA_BACKENDS
 #ifdef MUTRA_BACKENDS
   //! Бэкенды MIDI
   class MIDIBackend {
   public:
-    enum DeviceType { Input = 1, Output = 2, All = 3 };
+    enum DeviceType { None = 0, Input = 1, Output = 2, All = 3, Both = 4 };
+    typedef MIDIBackend* Pointer;
+    typedef std::vector<Pointer> List;
     class Manager {
-      static std::vector<MIDIBackend*> available_backends();
-      static MIDIBackend* get_backend( const std::string& Schema );
+    public:
+      Manager();
+      ~Manager();
+      const std::vector<MIDIBackend*> list_backends() const { return mBackends; }
+      MIDIBackend* get_backend( const std::string& Schema ) const;
+      void add_backend( MIDIBackend* NewBackend );
+      void remove_backend( MIDIBackend* OldBackend );
+      std::vector<Sequencer::Info> list_devices( DeviceType Filter = All ) const;
+      Sequencer* get_sequencer( const std::string& URI = std::string() ) const;
+      InputDevice* get_input( const std::string& URI = std::string() ) const;
+    private:
+      MIDIBackend::List mBackends;
     }; // Manager
-    const std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
+    static Manager& get_manager() { return sManager; }
+    virtual ~MIDIBackend();
+    virtual std::vector<Sequencer::Info> list_devices( DeviceType Filter = All ) { return std::vector<Sequencer::Info>(); }
+    virtual Sequencer* get_sequencer( const std::string& URI = std::string() ) { return nullptr; }
+    virtual InputDevice* get_input( const std::string& URI = std::string() ) { return nullptr; }
   private:
-    static
+    static Manager sManager;
+    std::string mName;
+    std::string mSchema;
   }; // MIDIBackend
 #endif // MUTRA_BACKENDS
 } // MuTraMIDI
