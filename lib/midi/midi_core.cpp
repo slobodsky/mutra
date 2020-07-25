@@ -17,12 +17,12 @@ using std::cout;
 using std::cerr;
 #include <sys/time.h>
 #include <unistd.h>
+#include "backends/linux_backend.hpp"
 #ifdef USE_ALSA_BACKEND
-#include "linux/Sequencer.hpp"
-#include "linux/input_device.hpp"
+#include "backends/alsa_backend.hpp"
 #endif // USE_ALSA_BACKEND
 #ifdef USE_RTMIDI_BACKEND
-#include "rtmidi_backend.hpp"
+#include "backends/rtmidi_backend.hpp"
 #endif // USE_RTMIDI_BACKEND
 
 namespace MuTraMIDI {

@@ -1,7 +1,7 @@
-#ifndef RTMIDI_BACKEND_HPP
-#define RTMIDI_BACKEND_HPP
+#ifndef MUTRA_RTMIDI_BACKEND_HPP
+#define MUTRA_RTMIDI_BACKEND_HPP
 #include <rtmidi/RtMidi.h>
-#include "midi_core.hpp"
+#include "../midi_core.hpp"
 
 namespace MuTraMIDI {
   class RTMIDIBackend : public MIDIBackend {
@@ -30,4 +30,4 @@ namespace MuTraMIDI {
   class RtMIDISequencer : public Sequencer {
   }; // RtMIDISequencer
 } // MuTraMIDI
-#endif // RTMIDI_BACKEND_HPP
+#endif // MUTRA_RTMIDI_BACKEND_HPP
