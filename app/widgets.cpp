@@ -209,7 +209,6 @@ namespace MuTraWidgets {
   //! \todo Move these globals into PianoRollView etc.
   const int ColorsNum = 7;
   QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
-
   PianoRollView::PianoRollView( QWidget* Parent ) : QGraphicsView( Parent ), Keyboard( nullptr ) {} // PianoRollView( QWidget* )
   void PianoRollView::update_piano_roll( MIDISequence* Sequence ) {
     QGraphicsScene* Sc = new QGraphicsScene( this );

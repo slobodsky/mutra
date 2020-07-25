@@ -42,12 +42,12 @@ namespace MuTraMIDI {
   private:
     snd_seq_event_t* get_event();
     void put_event( snd_seq_event_t* Event );
-    snd_seq_t* mSeq;
+    snd_seq_t* mSeq; //! \todo Reuse the backend's sequencer.
     int mClient;
     int mPort;
     int mInClient;
     int mInPort;
-    Event::TimeuS mTime; //! \todo Remove this. We don't need realtime here. It's copypaste from the RTMIDI. Boolean flag will be enough.
+    Event::TimeuS mTime; // Реальное время старта устройства. Все сообщения считаются от него. Также это признак остановки, поэтому для сообщений, обработанных после остановки, оно будет неверным.
     std::thread mInputThread;
     std::thread mQueueThread;
     std::queue<snd_seq_event_t*> mQueue;

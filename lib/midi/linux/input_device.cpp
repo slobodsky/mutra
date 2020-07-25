@@ -25,8 +25,9 @@ namespace MuTraMIDI {
     if( snd_seq_open( &mSeq, "default", SND_SEQ_OPEN_DUPLEX, 0 ) < 0 )
       cerr << "Can't open ALSA sequencer in output mode to get available devices." << endl;
   } // ALSABackend()
+
   ALSABackend::~ALSABackend() { snd_seq_close( mSeq ); }
-#define MUTRA_DEBUG
+
   vector<Sequencer::Info> ALSABackend::list_devices( DeviceType Filter ) {
     vector<Sequencer::Info> Result;
     if( !mSeq ) return Result;
@@ -74,7 +75,7 @@ namespace MuTraMIDI {
     snd_seq_client_info_free( ClientInfo );
     return Result;
   } // list_devices( DeviceType )
-#undef MUTRA_DEBUG
+
   Sequencer* ALSABackend::get_sequencer( const std::string& URI ) {
     if( URI.empty() ) return new ALSASequencer();
     if( URI.substr( 0, 7 ) == "alsa://" ) { //!< \todo Break down the URL && compare the schema to the schema() method. (Implement some URI parser)
@@ -159,13 +160,13 @@ namespace MuTraMIDI {
     }
 #endif // MUTRA_DEBUG
   } // конструктор по девайсу
-  ALSAInputDevice::~ALSAInputDevice()
-  {
+  ALSAInputDevice::~ALSAInputDevice() {
     snd_seq_close( mSeq );
     if( mInputThread.joinable() ) mInputThread.join();
   }
   void ALSAInputDevice::start() {
     if( active() ) return; // This means that it's already started.
+    mTime = get_time_us();
 #ifdef MUTRA_DEBUG
     cout << "Starting ALSA input device." << endl;
 #endif // MUTRA_DEBUG
@@ -174,7 +175,6 @@ namespace MuTraMIDI {
       cerr << "Can't connect from the input port." << snd_strerror( Err ) << endl;
     else
       snd_seq_drop_input( mSeq );
-    mTime = get_time_us();
 #ifdef MUTRA_DEBUG
     cout << "Start the threads for ALSA input device " << mInClient << ":" << mInPort << "->" << mClient << ":" << mPort << endl;
 #endif // MUTRA_DEBUG
@@ -214,11 +214,7 @@ namespace MuTraMIDI {
 #endif // MUTRA_DEBUG
 			       while( snd_seq_event_t* Ev = get_event() ) {
 				 Event* NewEvent = nullptr;
-				 Event::TimeuS Time = alsa_time_to_us( Ev->time.time );
-				 {
-				   lock_guard<mutex> Lock( mQueueMutex );
-				   mTime = Time;
-				 }
+				 Event::TimeuS Time = alsa_time_to_us( Ev->time.time ) - mTime;
 				 switch( Ev->type ) { //! \todo Process it.
 				 case SND_SEQ_EVENT_NOTEON:
 				   NewEvent = new NoteEvent( Event::NoteOn, Ev->data.note.channel, Ev->data.note.note, Ev->data.note.velocity, Time ); break;
