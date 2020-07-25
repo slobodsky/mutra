@@ -15,15 +15,6 @@ using std::stringstream;
 typedef unsigned char BYTE;
 
 namespace MuTraMIDI {
-  vector<Sequencer::Info> Sequencer::get_available_devices( const string& Backend ) {
-    if( Backend.empty() ) return MIDIBackend::get_manager().list_devices( MIDIBackend::Output );
-    if( MIDIBackend* Back = MIDIBackend::get_manager().get_backend( Backend ) ) return Back->list_devices();
-    return vector<Sequencer::Info>();
-  } // get_available_devices( const string& )
-  Sequencer* Sequencer::get_instance( const string& URI ) {
-    return MIDIBackend::get_manager().get_sequencer( URI );
-  } // get_instance( const string& URI )
-
   LinuxSequencer::LinuxSequencer( ostream& Device0 ) : Device( Device0 )
   {} // конструктор по девайсу
   LinuxSequencer::~LinuxSequencer()

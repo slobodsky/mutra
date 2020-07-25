@@ -1,11 +1,37 @@
 #include "rtmidi_backend.hpp"
+#include <sstream>
 using std::vector;
 using std::string;
 using std::cout;
 using std::cerr;
 using std::endl;
+using std::stringstream;
 
 namespace MuTraMIDI {
+  RTMIDIBackend::RTMIDIBackend() : MIDIBackend( "rtmidi", "RTMIDI" ) {} // ALSABackend()
+  RTMIDIBackend::~RTMIDIBackend() {}
+  vector<Sequencer::Info> RTMIDIBackend::list_devices( DeviceType Filter ) {
+    vector<Sequencer::Info> Result;
+    if( Filter == Both ) return Result;
+    if( Filter & Input ) {
+      RtMidiIn In;
+      int PortsCount = In.getPortCount();
+      for( int I = 0; I < PortsCount; ++I ) {
+	stringstream URI;
+	URI << "rtmidi://" << I;
+	Sequencer::Info Inf( In.getPortName( I ), URI.str() );
+	cout << "RTMIDI Input device: " << Inf.name() << " " << Inf.uri() << endl;
+	Result.push_back( Inf );
+      }
+    }
+    return Result;
+  } // list_devices( DeviceType )
+  InputDevice* RTMIDIBackend::get_input( const std::string& URI ) {
+    if( URI.substr( 0, 9 ) == "rtmidi://" )
+      return new RtMIDIInputDevice( stoi( URI.substr( 9 ) ) ); //!< \todo Use try/catch to catch malformed URIs.
+    return nullptr;
+  } // get_input( const std::string& )
+
   void RtMIDIInputDevice::message_received( double Delta, vector<unsigned char>* Msg, void* This ) {
     if( This ) static_cast<RtMIDIInputDevice*>( This )->message_received( Delta, Msg );
   } // message_received( double, std::vector<unsigned char>, void* )

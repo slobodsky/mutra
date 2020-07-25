@@ -20,6 +20,11 @@ using std::lock_guard;
 using std::vector;
 
 namespace MuTraMIDI {
+  InputDevice* FileBackend::get_input( const std::string& URI ) {
+    if( URI.substr( 0, 7 ) == "file://" )  return new FileInputDevice( URI.substr( 7 ) ); //!< \todo Check if the file is readable by the current user.
+    return nullptr;
+  } // get_input( const std::string& )
+
 #ifdef USE_ALSA_BACKEND
   ALSABackend::ALSABackend() : MIDIBackend( "alsa", "ALSA" ) {
     if( snd_seq_open( &mSeq, "default", SND_SEQ_OPEN_DUPLEX, 0 ) < 0 )
@@ -101,36 +106,6 @@ namespace MuTraMIDI {
   } // get_input( const std::string& )
 #endif // USE_ALSA_BACKEND
 
-  vector<InputDevice::Info> InputDevice::get_available_devices( const string& Backend ) {
-    vector<InputDevice::Info> Result = MIDIBackend::get_manager().list_devices( MIDIBackend::Input );
-#ifdef USE_RTMIDI_BACKEND
-    if( Backend.empty() || Backend == "rtmidi" ) {
-      RtMidiIn In;
-      int PortsCount = In.getPortCount();
-      for( int I = 0; I < PortsCount; ++I ) {
-	stringstream URI;
-	URI << "rtmidi://" << I;
-	Info Inf( In.getPortName( I ), URI.str() );
-	cout << "RTMIDI Input device: " << Inf.name() << " " << Inf.uri() << endl;
-	Result.push_back( Inf );
-      }
-    }
-#endif // USE_RTMIDI_BACKEND
-    return Result;
-  } // get_available_devices( const string& )
-
-  InputDevice* InputDevice::get_instance( const std::string& URI ) {
-    if( InputDevice* Result = MIDIBackend::get_manager().get_input( URI ) ) return Result;
-#ifdef USE_RTMIDI_BACKEND
-    if( URI.substr( 0, 9 ) == "rtmidi://" )
-      return new RtMIDIInputDevice( atoi( URI.substr( 9 ).c_str() ) );
-#endif // USE_RTMIDI_BACKEND
-    if( URI.substr( 0, 7 ) == "file://" )
-      return new FileInputDevice( URI.substr( 7 ) );
-    cerr << "Unknown schema in device URI: [" << URI << "], maybe missing backend." << endl;
-    return nullptr;
-  } // get_instance( const std::string& )
-  
   FileInputDevice::FileInputDevice( const string& FileName0 ) : FileName( FileName0 ), Str( FileName, ios::binary | ios::in ), Stream( Str ) {}
   void FileInputDevice::start() {
     unsigned char Status = 0;

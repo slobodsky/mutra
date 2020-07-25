@@ -16,6 +16,7 @@ using MuTraMIDI::NoteEvent;
 using MuTraMIDI::InputDevice;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
+using MuTraMIDI::MIDIBackend;
 using MuTraTrain::ExerciseSequence;
 using MuTraTrain::Lesson;
 using MuTraTrain::NoteTrainer;
@@ -35,9 +36,9 @@ int main() {
   const char* DevName = "rtmidi://2";
   const char* SequencerName = "alsa://24";
   bool PlayNotes = false;
-  if( InputDevice* Dev = InputDevice::get_instance( DevName ) ) {
+  if( InputDevice* Dev = MIDIBackend::get_manager().get_input( DevName ) ) {
     Dev->start();
-    if( Sequencer* Seq = Sequencer::get_instance( SequencerName ) ) {
+    if( Sequencer* Seq = MIDIBackend::get_manager().get_sequencer( SequencerName ) ) {
       Seq->start();
       if( PlayNotes ) {
 	srand( time(0) );

@@ -7,6 +7,13 @@
 #include <alsa/asoundlib.h>
 
 namespace MuTraMIDI {
+  class FileBackend : public MIDIBackend {
+  public:
+    FileBackend() : MIDIBackend( "file://", "Device file" ) {}
+    Sequencer* get_sequencer( const std::string& URI = std::string() );
+    InputDevice* get_input( const std::string& URI = std::string() );
+  }; // FileBackend
+
   class FileInputDevice : public InputDevice
   {
   public:
@@ -23,9 +30,9 @@ namespace MuTraMIDI {
   public:
     ALSABackend();
     ~ALSABackend();
-    virtual std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
-    virtual Sequencer* get_sequencer( const std::string& URI = std::string() );
-    virtual InputDevice* get_input( const std::string& URI = std::string() );
+    std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
+    Sequencer* get_sequencer( const std::string& URI = std::string() );
+    InputDevice* get_input( const std::string& URI = std::string() );
   private:
     snd_seq_t* mSeq;
   }; // ALSABackend

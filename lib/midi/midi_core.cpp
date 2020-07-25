@@ -11,14 +11,7 @@ using std::dec;
 using std::setfill;
 using std::setw;
 #include <algorithm>
-using std::for_each;
-using std::sort;
-#include <sstream>
-using std::stringstream;
-#include <vector>
 using std::vector;
-#include <cstring>
-using std::memcpy;
 using std::endl;
 using std::cout;
 using std::cerr;
@@ -27,7 +20,10 @@ using std::cerr;
 #ifdef USE_ALSA_BACKEND
 #include "linux/Sequencer.hpp"
 #include "linux/input_device.hpp"
-#endif
+#endif // USE_ALSA_BACKEND
+#ifdef USE_RTMIDI_BACKEND
+#include "rtmidi_backend.hpp"
+#endif // USE_RTMIDI_BACKEND
 
 namespace MuTraMIDI {
   uint64_t get_time_us() {
@@ -190,6 +186,9 @@ namespace MuTraMIDI {
 #ifdef USE_ALSA_BACKEND
     mBackends.push_back( new ALSABackend );
 #endif // USE_ALSA_BACKEND
+#ifdef USE_RTMIDI_BACKEND
+    mBackends.push_back( new RTMIDIBackend );
+#endif // USE_RTMIDI_BACKEND
   } // Manager()
   MIDIBackend::Manager::~Manager() { while( !mBackends.empty() ) delete mBackends.back(); } // ~Manager()
   vector<Sequencer::Info> MIDIBackend::Manager::list_devices( DeviceType Filter ) const {
@@ -213,6 +212,7 @@ namespace MuTraMIDI {
     for( MIDIBackend* Backend : mBackends ) //! \todo If URI is empty return some default device. Don't let the first backend do it.
       if( InputDevice* Seq = Backend->get_input( URI ) )
 	return Seq;
+    cerr << "Unknown schema in device URI: [" << URI << "], maybe missing backend." << endl;
     return nullptr;
   } // get_input( const std::string& )
 

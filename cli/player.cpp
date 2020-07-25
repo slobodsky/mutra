@@ -9,11 +9,12 @@ using std::flush;
 using MuTraMIDI::Sequencer;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::MultiSequencer;
+using MuTraMIDI::MIDIBackend;
 
 int main( int argc, char* argv[] )
 {
   const char* LightPortName = nullptr; // "/dev/ttyACM0";
-  Sequencer* Seq = Sequencer::get_instance();
+  Sequencer* Seq = MIDIBackend::get_manager().get_sequencer();
   MultiSequencer Mult;
   Mult.add( Seq );
   try {

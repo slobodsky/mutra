@@ -16,6 +16,7 @@ using MuTraMIDI::MIDITrack;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::EventsPrinter;
 using MuTraMIDI::Recorder;
+using MuTraMIDI::MIDIBackend;
 
 //#define USE_LIGHTS
 
@@ -42,7 +43,7 @@ int main( int argc, char* argv[] ) {
   }
 #endif
   cout << "Read MIDI events from " << DevName << endl;
-  if( InputDevice* Dev = InputDevice::get_instance( DevName ) ) {
+  if( InputDevice* Dev = MIDIBackend::get_manager().get_input( DevName ) ) {
     EventsPrinter Pr;
     Dev->add_client( Pr );
     Recorder Rec;

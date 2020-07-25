@@ -27,6 +27,7 @@ using MuTraMIDI::NoteEvent;
 using MuTraMIDI::InputConnector;
 using MuTraMIDI::Transposer;
 using MuTraMIDI::Names;
+using MuTraMIDI::MIDIBackend;
 using MuTraTrain::MetronomeOptions;
 using MuTraTrain::ExerciseSequence;
 using MuTraTrain::NoteTrainer;
@@ -653,8 +654,10 @@ namespace MuTraWidgets {
     QWidget* Page = new QWidget( this );
     mDevicesPage = new Ui::DevicesSettings;
     mDevicesPage->setupUi( Page );
-    for( const InputDevice::Info& Dev : InputDevice::get_available_devices() ) mDevicesPage->MIDIInput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
-    for( const Sequencer::Info& Dev : Sequencer::get_available_devices() ) mDevicesPage->MIDIOutput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
+    for( const InputDevice::Info& Dev : MIDIBackend::get_manager().list_devices( MIDIBackend::Input ) )
+      mDevicesPage->MIDIInput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
+    for( const Sequencer::Info& Dev : MIDIBackend::get_manager().list_devices( MIDIBackend::Output ) )
+      mDevicesPage->MIDIOutput->addItem( QString::fromStdString( Dev.name() ), QString::fromStdString( Dev.uri() ) );
     mDlg->SettingsTabs->addTab( Page, tr( "Devices" ) );
     Page = new QWidget( this );
     mMetronomePage = new Ui::MetronomeSettings;
@@ -1005,13 +1008,13 @@ namespace MuTraWidgets {
     connect( mUI->ActionExercise, SIGNAL( triggered( bool ) ), SLOT( toggle_exercise( bool ) ) );
     connect( mUI->ActionPlayNotes, SIGNAL( triggered( bool ) ), SLOT( toggle_notes_training( bool ) ) );
     SystemOptions SysOp = Application::get()->system_options();
-    if( mSequencer = Sequencer::get_instance( SysOp.midi_output() ) ) {
+    if( mSequencer = MIDIBackend::get_manager().get_sequencer( SysOp.midi_output() ) ) {
       qDebug() << "Sequencer created.";
       mSequencer->start();
       mMetronome = new MuTraTrain::Metronome( mSequencer );
       mMetronome->options( Application::get()->metronome_options() );
     } else statusBar()->showMessage( "Can't get sequencer" );
-    mInput = InputDevice::get_instance( SysOp.midi_input() );
+    mInput = MIDIBackend::get_manager().get_input( SysOp.midi_input() );
     if( !mInput ) QMessageBox::warning( this, tr( "Device problem" ), tr( "Can't open input device." ) );
     else if( mSequencer ) {
       if( SysOp.transpose() ) {

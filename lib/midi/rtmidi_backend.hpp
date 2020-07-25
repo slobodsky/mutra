@@ -4,6 +4,14 @@
 #include "midi_core.hpp"
 
 namespace MuTraMIDI {
+  class RTMIDIBackend : public MIDIBackend {
+  public:
+    RTMIDIBackend();
+    ~RTMIDIBackend();
+    std::vector<Sequencer::Info> list_devices( DeviceType Filter = All );
+    InputDevice* get_input( const std::string& URI = std::string() );
+  }; // RTMIDIBackend
+
   class RtMIDIInputDevice : public InputDevice {
     static void message_received( double Delta, std::vector<unsigned char>* Msg, void* This );
   public:
