@@ -1,0 +1,1 @@
+?package(mutra):needs="X11" section="Applications/Education" title="MuTra, the Music Trainer" command="/usr/bin/mutra" icon="/usr/share/icons/hicolor/scalable/apps/mutra.svg"

@@ -8,3 +8,5 @@ add_executable( mutra forms/main.ui forms/settings_dialog.ui forms/devices_setti
   app.qrc widgets.cpp main.cpp )
 
 target_link_libraries( mutra mutra_training Qt5::Widgets Qt5::DBus Qt5::Svg )
+install( TARGETS mutra )
+install( FILES images/music_trainer.svg DESTINATION /usr/share/icons/hicolor/scalable/apps )
