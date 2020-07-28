@@ -6,6 +6,10 @@
 #include <limits.h>
 
 namespace MuTraTrain {
+  bool is_absolute_path_name( const std::string& FileName );
+  std::string prepend_path( const std::string& DirName, const std::string& FileName );
+  std::string absolute_dir_name( const std::string& FileName );
+
   struct ExerciseLimits
   {
     int StartFore;      // Максимальное опережение начала ноты

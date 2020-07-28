@@ -19,8 +19,30 @@ using MuTraMIDI::MIDITrack;
 using MuTraMIDI::MIDIException;
 using MuTraMIDI::MIDISequence;
 using MuTraMIDI::Sequencer;
+#include <unistd.h>
 
 namespace MuTraTrain {
+  bool is_absolute_path_name( const string& FileName ) { return !FileName.empty() && FileName[0] == '/'; }
+  string absolute_dir_name( const string& FileName ) {
+    string Result;
+    size_t Pos = FileName.rfind( '/' );
+    if( Pos != string::npos ) {
+      if( Pos == 0 ) return "/";
+      else Result = FileName.substr( 0, Pos );
+    }
+    if( !is_absolute_path_name( Result ) ) {
+      char CWD[ PATH_MAX ];
+      if( getcwd( CWD, PATH_MAX ) ) return prepend_path( CWD, Result );
+    }
+    return Result;
+  } // absolute_dir_name( cosnt std::string& )
+  string prepend_path( const string& DirName, const string& FileName ) {
+    if( FileName.empty() ) return DirName;
+    if( DirName.empty() ) return FileName;
+    if( DirName.back() != '/' ) return DirName + '/' + FileName;
+    return DirName + FileName;
+  } // prepend_path( const string&, const string& )
+
   bool ExerciseSequence::load( const string& FileName )
   {
     bool Result = false;
@@ -31,6 +53,7 @@ namespace MuTraTrain {
       {
 	string Name;
 	Ex >> Name >> TargetTracks >> Channels >> StartPoint >> StopPoint >> StartThreshold >> StopThreshold >> VelocityThreshold >> TempoSkew;
+	if( !is_absolute_path_name( Name ) ) Name = prepend_path( absolute_dir_name( FileName ), Name );
 #ifdef MUTRA_DEBUG
 	cout << "Load play from " << Name << " tracks: " << TargetTracks << " channels: " << Channels << " [" << StartPoint << "-" << StopPoint << " limits: start: " << StartThreshold
 	     << " stop: " << StopThreshold << " velocity: " << VelocityThreshold << " tempo " << TempoSkew / 100.0 << "%" << endl;

@@ -1086,7 +1086,7 @@ namespace MuTraWidgets {
   bool MainWindow::load_lesson( const string& FileName ) {
     mLesson = new Lesson( FileName );
     if( mLesson->exercises().empty() ) return false;
-    if( load_exercise( mLesson->file_name() ) ) {
+    if( load_exercise( mLesson->absolute_file_name() ) ) {
       mStrike = mLesson->strike();
       mRetries = mLesson->retries();
       mToGo = mRetries;
@@ -1278,7 +1278,7 @@ namespace MuTraWidgets {
 	if( Out.good() ) mExercise->write( Out );
 	if( mLesson )
 	  if( mLesson->next() ) {
-	    if( load_exercise( mLesson->file_name() ) ) {
+	    if( load_exercise( mLesson->absolute_file_name() ) ) {
 	      mStrike = mLesson->strike();
 	      mRetries = mLesson->retries();
 	      mToGo = mRetries;

@@ -7,19 +7,22 @@ namespace MuTraTrain {
   public:
     class Exercise
     {
-      std::string FileName; // Name of the file with the exercise.
+      std::string FileName; // Name of the file with the exercise. As set in the lesson (usualy relative to the lesson).
+      std::string AbsoluteFileName; // Absolute file name. Q&D fix for relative files. Very ugly, but we must have it here, to set right path for statistics & played .mid files on save.
       int Retries;
       int Strike;
       std::vector<ExerciseSequence::NotesStat> Stats;
     public:
       Exercise( const std::string& FileName0, int Retries0 = 3, int Strike0 = 0 )
-	: FileName( FileName0 ), Retries( Retries0 ), Strike( Strike0 ) {}
+	: FileName( FileName0 ), AbsoluteFileName( FileName0 ), Retries( Retries0 ), Strike( Strike0 ) {}
       const std::string& file_name() const { return FileName; }
+      const std::string& absolute_file_name() const { return AbsoluteFileName; }
       int retries() const { return Retries; }
       int strike() const { return Strike; }
       const std::vector<ExerciseSequence::NotesStat>& statistics() const { return Stats; }
       const ExerciseSequence::NotesStat& stats( int Index ) const { return Stats[ Index ]; }
       void new_stat( const ExerciseSequence::NotesStat& NewStat );
+      void absolute_file_name( const std::string& NewName ) { AbsoluteFileName = NewName; }
       void save();
     }; // Exercise
   private:
@@ -30,7 +33,8 @@ namespace MuTraTrain {
     Lesson( const std::string& FileName0 );
 
     const std::string& lesson_name() const { return FileName; }
-    std::string file_name() const { return Exercises[ Current ].file_name(); }
+    const std::string& file_name() const { return Exercises[ Current ].file_name(); }
+    const std::string& absolute_file_name() const { return Exercises[ Current ].absolute_file_name(); }
     const std::vector<Exercise>& exercises() const { return Exercises; }
     const Exercise& exercise( int Index ) const { return Exercises[ Index ]; }
     int retries() const { return Exercises[ Current ].retries(); }

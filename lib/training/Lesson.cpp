@@ -21,7 +21,7 @@ namespace MuTraTrain {
 
   void Lesson::Exercise::save()
   {
-    string Name = FileName.substr( 0, FileName.length()-3 )+"stat";
+    string Name = AbsoluteFileName.substr( 0, AbsoluteFileName.length()-3 )+"stat";
     ofstream File( Name.c_str(), ios::app | ios::out | ios::binary );
     int ToGo = Retries;
     for( vector<ExerciseSequence::NotesStat>::const_iterator It = Stats.begin(); It != Stats.end(); It++ )
@@ -80,6 +80,7 @@ namespace MuTraTrain {
 	    int Strike = 0;
 	    Les >> Retries >> Strike;
 	    Exercises.push_back( Exercise( Name, Retries, Strike ) );
+	    if( !is_absolute_path_name( Name ) ) Exercises.back().absolute_file_name( prepend_path( absolute_dir_name( FileName ), Name ) );
 	  }
 	  else
 	    Les.ignore( 1024 * 1024 * 1024, '\n' );
