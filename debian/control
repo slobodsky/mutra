@@ -1,0 +1,33 @@
+Source: music-trainer
+Priority: optional
+Maintainer: Nick Slobodsky <software@slobodsky.ru>
+Build-Depends: debhelper-compat (= 12)
+Standards-Version: 4.4.0
+Section: education
+Homepage: http://software.slobodsky.ru/music_trainer
+#Vcs-Browser: https://salsa.debian.org/debian/music-trainer
+#Vcs-Git: https://salsa.debian.org/debian/music-trainer.git
+
+Package: libmutra-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libmutra (= ${binary:Version}), ${misc:Depends}
+Description: Music training application - development libraries
+ Music Trainer (MuTra) is an application for learning music pieces on a MIDI-capable musical instrument, e.g. keyboards.
+ These package allows you to use MuTra functions in other applications.
+
+Package: libmutra
+Section: libs
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Music training application - libraries
+ Music Trainer (MuTra) is an application for learning music pieces on a MIDI-capable musical instrument, e.g. keyboards.
+
+Package: mutra
+Architecture: any
+Multi-Arch: same
+Depends: libmutra (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Music training application
+ Music Trainer (MuTra) is an application for learning music pieces on a MIDI-capable musical instrument, e.g. keyboards.

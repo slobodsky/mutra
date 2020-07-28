@@ -4,7 +4,7 @@ set(CMAKE_AUTOUIC ON)
 
 find_package( Qt5 COMPONENTS Widgets DBus Svg REQUIRED )
 
-add_executable( music_trainer forms/main.ui forms/settings_dialog.ui forms/devices_settings.ui forms/metronome_settings.ui forms/exercise_settings.ui forms/notes_exercise_settings.ui forms/midi_mixer.ui
+add_executable( mutra forms/main.ui forms/settings_dialog.ui forms/devices_settings.ui forms/metronome_settings.ui forms/exercise_settings.ui forms/notes_exercise_settings.ui forms/midi_mixer.ui
   app.qrc widgets.cpp main.cpp )
 
-target_link_libraries( music_trainer music_trainer_training Qt5::Widgets Qt5::DBus Qt5::Svg )
+target_link_libraries( mutra mutra_training Qt5::Widgets Qt5::DBus Qt5::Svg )

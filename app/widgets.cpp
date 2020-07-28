@@ -36,6 +36,8 @@ using std::queue;
 using std::vector;
 using std::string;
 using std::swap;
+using std::ofstream;
+using std::to_string;
 
 namespace MuTraWidgets {
   void load_from_settings( SystemOptions& Options ) {
@@ -1118,6 +1120,7 @@ namespace MuTraWidgets {
     return true;
   } // load_exercise( const string& )
   bool MainWindow::save_file() {
+    if( mLesson ) return mLesson->save();
     if( !mMIDI ) return true;
     if( mMIDIFileName.empty() ) return save_file_as();
     return mMIDI->close_and_write( mMIDIFileName );
@@ -1270,12 +1273,19 @@ namespace MuTraWidgets {
     if( complete_exercise() ) {
       if( --mToGo == 0 ) {
 	mSequencer->note_on( 9, 52, 100 );
-	if( mLesson && mLesson->next() && load_exercise( mLesson->file_name() ) ) {
-	  mStrike = mLesson->strike();
-	  mRetries = mLesson->retries();
-	  mToGo = mRetries;
-	  if( mStats )  mStats->start_exercise( mLesson->exercise( mLesson->current() ) );
-	}
+	// Save the MIDI track
+	ofstream Out( mExerciseName+"-"+to_string(time(0))+".mid" );
+	if( Out.good() ) mExercise->write( Out );
+	if( mLesson )
+	  if( mLesson->next() ) {
+	    if( load_exercise( mLesson->file_name() ) ) {
+	      mStrike = mLesson->strike();
+	      mRetries = mLesson->retries();
+	      mToGo = mRetries;
+	      if( mStats ) mStats->start_exercise( mLesson->exercise( mLesson->current() ) );
+	    }
+	  }
+	  else mLesson->save();
       }
     }
     else mToGo = mRetries;

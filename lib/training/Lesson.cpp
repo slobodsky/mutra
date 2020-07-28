@@ -50,12 +50,14 @@ namespace MuTraTrain {
       {
 	if( ++Strike >= 7 )
 	{
+	  cout << "Exercise " << FileName << " has to be played one time a week." << endl;
 	  Retries = 0;
 	  Strike = 0;
 	}
       }
-      else
+      else if( Retries == 3 && ++Strike >= 3 )
       {
+	cout << "Exercise " << FileName << " has to be played one time a day." << endl;
 	Retries = 1;
 	Strike = 0;
       }

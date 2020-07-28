@@ -7,7 +7,7 @@ namespace MuTraTrain {
   public:
     class Exercise
     {
-      std::string FileName;
+      std::string FileName; // Name of the file with the exercise.
       int Retries;
       int Strike;
       std::vector<ExerciseSequence::NotesStat> Stats;

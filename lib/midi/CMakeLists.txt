@@ -15,6 +15,8 @@ if( rtmidi_FOUND )
   set( EXTRA_LIBRARIES "${EXTRA_LIBRARIES}" "rtmidi" )
 endif()
 
-add_library( music_trainer_midi SHARED midi_core.cpp midi_events.cpp midi_files.cpp midi_utility.cpp ${BACKENDS} )
+add_library( mutra_midi SHARED midi_core.cpp midi_events.cpp midi_files.cpp midi_utility.cpp ${BACKENDS} )
 
-target_link_libraries( music_trainer_midi ${EXTRA_LIBRARIES} )
+target_link_libraries( mutra_midi ${EXTRA_LIBRARIES} )
+set_target_properties( mutra_midi PROPERTIES VERSION "0.0.1" )
+set_target_properties( mutra_midi PROPERTIES SOVERSION "0.0.1" )
