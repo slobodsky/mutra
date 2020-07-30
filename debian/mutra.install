@@ -1,2 +1,4 @@
 usr/bin/mutra*
+usr/share/icons/hicolor/256x256/apps/*
 usr/share/icons/hicolor/scalable/apps/*
+usr/share/applications/mutra.desktop

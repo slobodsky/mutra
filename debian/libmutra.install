@@ -1,1 +1,4 @@
 usr/lib/*/lib*.so*
+usr/share/icons/hicolor/scalable/mimetypes/application-x-mutra*.svg
+usr/share/mime/packages/mutra-training-mime.xml
+
