@@ -193,7 +193,7 @@ namespace MuTraWidgets {
     }
     void meter( int Numerator, int Denominator ) {
 #ifdef MUTRA_DEBUG
-      qDebug() << "Metar: " << Numerator << "/" << Denominator << endl;
+      qDebug() << "Metar: " << Numerator << "/" << Denominator;
 #endif
       Beats = Numerator;
       Measure = Denominator;
@@ -772,7 +772,7 @@ namespace MuTraWidgets {
 	     << "Power beat" << mMetronomePage->PowerNote->currentText() << "(" << mMetronomePage->PowerNote->currentData() << ") @" << mMetronomePage->PowerVelocity->value()
 	     << "Weak beat" << mMetronomePage->WeakNote->currentText() << "(" << mMetronomePage->WeakNote->currentData() << ") @" << mMetronomePage->WeakVelocity->value()
 	     << "Medium beat" << mMetronomePage->MediumNote->currentText() << "(" << mMetronomePage->MediumNote->currentData() << ") @" << mMetronomePage->MediumVelocity->value()
-	     << "Notes exercise" << mNoteLow << "-" << mNoteHigh << endl;
+	     << "Notes exercise" << mNoteLow << "-" << mNoteHigh;
 #endif
     QDialog::accept();
   } // accept()
@@ -805,11 +805,11 @@ namespace MuTraWidgets {
     }
   } // MIDIMixer( QWidget* )
   void MIDIMixer::volume_changed( int Channel, int Value ) {
-    qDebug() << "Channel" << Channel << "volume" << Value << endl;
+    qDebug() << "Channel" << Channel << "volume" << Value;
     if( mSequencer ) mSequencer->control_change( Channel, 7, Value );
   } // volume_changed( int, int )
   void MIDIMixer::pan_changed( int Channel, int Value ) {
-    qDebug() << "Channel" << Channel << "pan" << Value << endl;
+    qDebug() << "Channel" << Channel << "pan" << Value;
     if( mSequencer ) mSequencer->control_change( Channel, 10, Value );
   } // pan_changed( int, int )
   
@@ -1029,7 +1029,7 @@ namespace MuTraWidgets {
       }
     }
     connect( &mTimer, SIGNAL( timeout() ), SLOT( timer() ) );
-    setWindowIcon( QIcon( ":/images/music_trainer.svg" ) );
+    setWindowIcon( QIcon( ":/images/mutra.svg" ) );
   } // MainWindow( QWidget* )
   MainWindow::~MainWindow() {
     if( mPlayer ) delete mPlayer;
@@ -1298,7 +1298,7 @@ namespace MuTraWidgets {
     if( !mExercise ) return;
     //! \todo Move to some special object with platform independent call like enableScreenSaver( true/false )
     QDBusMessage Call = QDBusMessage::createMethodCall( "org.freedesktop.ScreenSaver", "/ScreenSaver", QString(), "Inhibit" );
-    Call.setArguments( QList<QVariant>() << QString( "MusicTrainer" ) << QString( "Exercise" ) );
+    Call.setArguments( QList<QVariant>() << QString( "MuTra" ) << QString( "Exercise" ) );
     mDBusReply = new QDBusPendingCallWatcher( QDBusConnection::sessionBus().asyncCall( Call ), this );
     connect( mDBusReply, &QDBusPendingCallWatcher::finished, [this]( QDBusPendingCallWatcher* Watcher ) {
 							       QDBusPendingReply<unsigned> Reply( *Watcher );
@@ -1368,7 +1368,7 @@ namespace MuTraWidgets {
   Application::Application( int& argc, char** argv ) : QApplication( argc, argv ) {
     setOrganizationName( "Nick Slobodsky" );
     setOrganizationDomain( "software.slobodsky.ru" );
-    setApplicationName( "Music Trainer" );
+    setApplicationName( "MuTra" );
     setApplicationVersion( "0.0.1~preview1" );
     // was: Load standard settings (do I need it?)
     load_from_settings( mSystemOptions );

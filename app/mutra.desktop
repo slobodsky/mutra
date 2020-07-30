@@ -1,0 +1,11 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Type=Application
+Terminal=false
+Name=MuTra
+Comment=The Music Trainer application.
+X-Text-Domain=mutra.desktop
+Exec=/usr/bin/mutra
+Icon=music-trainer
+Categories=Qt;Education;
