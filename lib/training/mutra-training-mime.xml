@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mutra-lesson">
+    <comment>MuTra lesson</comment>
+    <glob pattern="*.mles"/>
+    <icon name="application-x-mutra-lesson"/>
+  </mime-type>
+  <mime-type type="application/x-mutra-exercise">
+    <comment>MuTra exercise</comment>
+    <glob pattern="*.mex"/>
+    <icon name="application-x-mutra-exercise"/>
+  </mime-type>
+</mime-info>

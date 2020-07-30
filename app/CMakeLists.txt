@@ -9,5 +9,6 @@ add_executable( mutra forms/main.ui forms/settings_dialog.ui forms/devices_setti
 
 target_link_libraries( mutra mutra_training Qt5::Widgets Qt5::DBus Qt5::Svg )
 install( TARGETS mutra COMPONENT mutra )
-install( FILES images/mutra.svg DESTINATION share/icons/hicolor/scalable/apps COMPONENT mutra )
+install( FILES images/mutra.svg images/mutra-dark.svg DESTINATION share/icons/hicolor/scalable/apps COMPONENT mutra )
+install( FILES images/mutra.png images/mutra-dark.png DESTINATION share/icons/hicolor/256x256/apps COMPONENT mutra )
 install( FILES mutra.desktop DESTINATION share/applications COMPONENT mutra )

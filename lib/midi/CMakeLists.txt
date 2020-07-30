@@ -20,3 +20,6 @@ add_library( mutra_midi SHARED midi_core.cpp midi_events.cpp midi_files.cpp midi
 target_link_libraries( mutra_midi ${EXTRA_LIBRARIES} )
 set_target_properties( mutra_midi PROPERTIES VERSION "0.0.1" )
 set_target_properties( mutra_midi PROPERTIES SOVERSION "0.0.1" )
+
+install( TARGETS mutra_midi COMPONENT libmutra )
+install( FILES midi_core.hpp midi_events.hpp midi_files.hpp midi_utility.hpp DESTINATION include/mutra/midi COMPONENT libmutra-dev )
