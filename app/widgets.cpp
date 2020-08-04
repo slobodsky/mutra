@@ -1288,7 +1288,10 @@ namespace MuTraWidgets {
 	  else mLesson->save();
       }
     }
-    else mToGo = mRetries;
+    else {
+      if( mRetries < 3 ) mRetries = 3;
+      mToGo = mRetries;
+    }
     update_piano_roll();
     if( mExercise && mToGo > 0 ) start_exercise();
     else if( mStats && mLesson ) mStats->finish_lesson( *mLesson );

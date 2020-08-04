@@ -7,6 +7,6 @@ Name=MuTra
 Comment=The Music Trainer application.
 X-Text-Domain=mutra.desktop
 Exec=/usr/bin/mutra
-Icon=music-trainer
+Icon=mutra
 Categories=Qt;Education;Music
 MimeType=application/x-mutra-lesson;application/x-mutra-exercise;
