@@ -43,9 +43,29 @@ namespace MuTraTrain {
     return DirName + FileName;
   } // prepend_path( const string&, const string& )
 
+  void ExerciseSequence::TryResult::start_note( int Note, int Velocity, int Clock ) {
+    mNotes.push_back( PlayedNote( Note, Velocity, Clock ) );
+    if( mStat.Start < 0 ) mStat.Start = Clock; //!< \todo Stat's Start & Finish should be in real time, not sequencer's clock!
+    if( mStat.Finish < Clock ) mStat.Finish = Clock;
+  } // start_note( int, int, int )
+  void ExerciseSequence::TryResult::stop_note( int Note, int Clock ) {
+    if( find_if( mNotes.rbegin(), mNotes.rend(),
+		 [Note, Clock]( PlayedNote& N ) {
+		   if( N.note() == Note ) {
+		     if( N.stop() < 0 ) N.stop( Clock );
+		     else cerr << "Warning: note double stop." << endl;
+		     return true;
+		   }
+		   return false;
+		 } ) != mNotes.rend()
+	&& mStat.Finish < Clock )
+      mStat.Finish = Clock;
+  } // stop_note( int, int )
+
   bool ExerciseSequence::load( const string& FileName )
   {
     bool Result = false;
+    clear();
     try
     {
       ifstream Ex( FileName );
@@ -101,7 +121,8 @@ namespace MuTraTrain {
     {
       if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && Clock >= StartPoint && ( StopPoint < 0 || Clock < StopPoint ) ) {
 	HangingNotes.push_back( ChanNote( Note, Channel ) );
-	add_original_event( new NoteEvent( ChannelEvent::NoteOn, Channel, Note, Velocity, Clock * tempo() / division() ) );
+	mOriginal.push_back( new OriginalNote( Note, Channel, Velocity, Clock ) );
+	add_original_event( new NoteEvent( ChannelEvent::NoteOn, Channel, Note, Velocity, clocks_to_us( Clock ) ) );
       }
     }
     else
@@ -113,7 +134,9 @@ namespace MuTraTrain {
       auto It = find( HangingNotes.begin(), HangingNotes.end(), ChanNote( Note, Channel ) );
       if( It != HangingNotes.end() ) {
 	HangingNotes.erase( It );
-	add_original_event( new NoteEvent( ChannelEvent::NoteOff, Channel, Note, Velocity, Clock * tempo() / division() ) );
+	add_original_event( new NoteEvent( ChannelEvent::NoteOff, Channel, Note, Velocity, clocks_to_us( Clock ) ) );
+	auto N = find_if( mOriginal.rbegin(), mOriginal.rend(), [Note](const OriginalNote* Try){ return Try->note() == Note; } );
+	if( N != mOriginal.rend() ) (*N)->stop( Clock );
       }
     }
   } // note_off( int, int, int )
@@ -134,7 +157,7 @@ namespace MuTraTrain {
   } // key_signature( int, bool )
   void ExerciseSequence::add_original_event( Event* NewEvent )
   {
-    int OriginalAlignment = StartPoint % int( Numerator * division() / (( 1 << Denominator ) / 4.0 ) );
+    int OriginalAlignment = StartPoint % bar_clocks();
     int ClockFromStart = Clock - StartPoint + OriginalAlignment;
     if( Tracks.empty() ) add_track();
 #ifdef MUTRA_DEBUG
@@ -166,35 +189,33 @@ namespace MuTraTrain {
     Tracks.front()->events().back()->add( NewEvent );
   } // add_original_event( Event* )
   void ExerciseSequence::add_played_event( Event* NewEvent ) {
-    Event::TimeuS EvClock = NewEvent->time() * division() / tempo();
+    Event::TimeuS EvTime = get_time_us();
     if( PlayedStartuS <= 0 ) {
       if( NewEvent->status() == ChannelEvent::NoteOn ) {
-	PlayedStartuS = get_time_us();
-	PlayedStart = EvClock;
+	PlayedStartuS = EvTime;
 	if( align_start() > 0 ) { //! \todo Make this ugly code clean.
-	  int BaruS = int( tempo() * ( 4.0 / ( 1 << Denominator ) ) );
+	  int BaruS = bar_us();
 	  int Offset = ( PlayedStartuS - align_start() ) % BaruS;
-	  int OriginalToBar = OriginalStart % int( division() * ( 4.0 / ( 1 << Denominator ) ) ); //!< \todo Сделать функции для подсчёта микросекунд и MIDI-клоков в доле и такте.
-	  Offset -= OriginalToBar * tempo() / division();
+	  int OriginalToBar = OriginalStart % bar_clocks();
+	  Offset -= clocks_to_us( OriginalToBar );
 	  if( Offset > BaruS / 2 ) Offset -= BaruS;
 	  cout << "Align to " << Offset << " µs, PlayedStart " << PlayedStartuS << " align: " << align_start() << " tempo: " << tempo() << " diff: " << PlayedStartuS - align_start() << endl;
 	  PlayedStartuS -= Offset;
-	  PlayedStart -= Offset * division() / tempo();
 	}
       }
       else return; // throw away events before start
     }
+    int EvClock = us_to_clocks( EvTime-PlayedStartuS ) + OriginalStart;
 #ifdef MUTRA_DEBUG
     std::cout << "Add event @" << EvClock << " (" << NewEvent->time() << "us): ";
     NewEvent->print( std::cout );
     std::cout << std::endl;
 #endif
-    EvClock += OriginalStart - PlayedStart;
     add_event( EvClock, NewEvent );
   } // add_played_event( Event* )
   void ExerciseSequence::event_received( const Event& Ev ) {
 #ifdef MUTRA_DEBUG
-    std::cout << "Recieved event: ";
+    std::cout << "Recieved event @\t" << get_time_us() << '\t';
     Ev.print( std::cout );
     std::cout << std::endl;
 #endif
@@ -204,7 +225,7 @@ namespace MuTraTrain {
   bool ExerciseSequence::beat( Event::TimeuS Time )
   {
     if( PlayedStartuS <= 0 ) return false;
-    int Clocks = static_cast<int>( ( (Time-PlayedStartuS) * division() ) / tempo() );
+    int Clocks = us_to_clocks( Time-PlayedStartuS );
 #ifdef MUTRA_DEBUG
     cout << "Beat @" << Clocks << " (" << Time << "us)";
     cout << " " << Clocks - PlayedStart << " from start (" << PlayedStart << ") & " << PlayedStart + OriginalLength - Clocks << " to end.";
@@ -216,133 +237,79 @@ namespace MuTraTrain {
 
   namespace Helpers
   {
-    class NoteStopper
-    {
-      int Note;
-      int Clocks;
+    class NotesSequence : public Sequencer {
     public:
-      NoteStopper( int Note0, int Clocks0 ) : Note( Note0 ), Clocks( Clocks0 ) {}
-      bool operator()( ExerciseSequence::NotePlay& Play )
-      {
-	bool Result = false;
-	if( Play.Note == Note && Play.Stop < 0 )
-	{
-	  Play.Stop = Clocks;
-	  Result = true;
-	}
-	return Result;
-      }
-    }; // NoteStopper
-    class NoteFinder
-    {
-      int Note;
-    public:
-      NoteFinder( int Note0 ) : Note( Note0 ) {}
-      bool operator()( ExerciseSequence::NotePlay& Play ) { return !Play.Visited && Play.Note == Note; }
-    }; // NoteFinder
-    struct UnVisited { bool operator()( ExerciseSequence::NotePlay& Play ) { return !Play.Visited; } }; // UnVisited
-    class NotesSequence : public Sequencer
-    {
-      vector<ExerciseSequence::NotePlay> Notes;
-      int Start;
-      int Finish;
-    public:
-      NotesSequence() : Start( -1 ), Finish( 0 ) {}
-      vector<ExerciseSequence::NotePlay>& notes() { return Notes; }
+      NotesSequence( ExerciseSequence::TryResult& Try ) : mTry( Try ) {}
+      ExerciseSequence::TryResult& notes() { return mTry; }
 
-      void note_on( int Channel, int Note, int Velocity )
-      {
-	if( Start < 0 )
-	  Start = Clock;
-	if( Finish < Clock )
-	  Finish = Clock;
+      void note_on( int Channel, int Note, int Velocity ) {
 	if( Velocity > 0 )
-	  Notes.push_back( ExerciseSequence::NotePlay( Note, Velocity, Clock ) );
+	  mTry.start_note( Note, Velocity, Clock );
 	else
 	  note_off( Channel, Note, Velocity );
       } // note_on( int, int, int )
-      void note_off( int Channel, int Note, int Velocity )
-      { 
-	if( Start < 0 )
-	  Start = Clock;
-	if( Finish < Clock )
-	  Finish = Clock;
-	find_if( Notes.rbegin(), Notes.rend(), NoteStopper( Note, Clock ) );
-      }
-      int start() const { return Start; }
-      int finish() const { return Finish; }
+      void note_off( int Channel, int Note, int Velocity ) { mTry.stop_note( Note, Clock ); }
+    private:
+      ExerciseSequence::TryResult& mTry;
     }; // NotesSequence
   }; // Helpers
 
-  //! \todo When note off message comes with note on for other note the device (or OS) loses that note off message. Find this situation and set stop to correct time.
-  unsigned ExerciseSequence::compare( NotesStat& Stat )
-  {
-    Stat.Result = NoError;
+  unsigned ExerciseSequence::compare() {
+    if( mPlayed.size() >= Tracks.size()-1 ) return mPlayed.back()->stat().Result;
+    TryResult* Res = new TryResult;
+    Helpers::NotesSequence Filler( *Res );
+    Tracks.back()->play( Filler );
+    mPlayed.push_back( Res );
+    return Res->compare( *this );
+  } // compare()
 
-    Helpers::NotesSequence Original;
-    Tracks.front()->play( Original );
-    Helpers::NotesSequence Played;
-    Tracks.back()->play( Played );
-    Stat.Start = Played.start();
-    Stat.Finish = Played.finish();
-
-    if( Played.notes().size() != Original.notes().size() )
-    {
-      Stat.Result |= NoteError;
-      if( Played.notes().empty() )
-	Stat.Result |= EmptyPlay;
+  unsigned ExerciseSequence::TryResult::compare( const ExerciseSequence& Original ) {
+    for( const OriginalNote* ON : Original.original() ) {
+      if( find_if( mNotes.begin(), mNotes.end(), [ON]( PlayedNote& Note ) { //!< \todo Optimize: search not from the begin, but from the last note that was not found.
+						   if( !Note.original() && Note.note() == ON->note() ) {
+						     Note.original( ON );
+						     return true;
+						   }
+						   return false;
+						 } )  == mNotes.end() )
+	mStat.Result |= NoteError;
     }
-    else if( !Played.notes().empty() )
-    {
-      vector<NotePlay> Diff;
-
-      for( vector<NotePlay>::const_iterator OIt = Original.notes().begin(); OIt != Original.notes().end() && Stat.Result == NoError; OIt++ )
-      {
-	vector<NotePlay>::iterator PIt = find_if( Played.notes().begin(), Played.notes().end(), Helpers::NoteFinder( OIt->Note ) );
-	if( PIt == Played.notes().end() )
-	  Stat.Result |= NoteError;
-	else
-	{
-	  Diff.push_back( NotePlay( PIt->Note, PIt->Velocity-OIt->Velocity, PIt->Start-OIt->Start, PIt->Stop < 0 ? 0 : PIt->Stop-OIt->Stop ) );
-	  PIt->Visited = true;
+    if( mStat.Result == NoError && find_if( mNotes.begin(), mNotes.end(), []( const PlayedNote& Note ) { return !Note.original(); } ) != mNotes.end() )
+      mStat.Result |= NoteError;
+    for( const PlayedNote& Note : mNotes )
+      if( Note.original() ) {
+	if( Note.start_diff() > mStat.StartMax ) mStat.StartMax = Note.start_diff();
+	if( Note.start_diff() < mStat.StartMin ) mStat.StartMin = Note.start_diff();
+	if( Note.stop() > 0 ) { // Skip lost NoteOff messages from buggy keyboards.
+	  if( Note.stop_diff() > mStat.StopMax ) mStat.StopMax = Note.stop_diff();
+	  if( Note.stop_diff() < mStat.StopMin ) mStat.StopMin = Note.stop_diff();
 	}
-      }
-      if( Stat.Result == NoError && find_if( Played.notes().begin(), Played.notes().end(), Helpers::UnVisited() ) != Played.notes().end() )
-	Stat.Result |= NoteError;
-      Stat = for_each( Diff.begin(), Diff.end(), Stat );
-      int Round = MIDISequence::Division / ( ( 1 << Denominator ) / 4.0 ) * Numerator; // Округляем до целого числа тактов
-      int Min = Stat.StartMin;
-      int TimeDiff = ( Min / Round ) * Round;
-      if( Min % Round > Round / 2 )
-	TimeDiff += Round;
-      Stat.StartMin -= TimeDiff;
-      Stat.StartMax -= TimeDiff;
-      Stat.StopMin -= TimeDiff;
-      Stat.StopMax -= TimeDiff;
-      double Correction = MIDISequence::Division / 120.0;
-      if( abs( Stat.StartMax ) > StartThreshold * Correction || abs( Stat.StartMin ) > StartThreshold * Correction
-	  || abs( Stat.StopMax ) > StopThreshold * Correction || abs( Stat.StopMin ) > StopThreshold * Correction )
-	Stat.Result |= RythmError;
-      if( Correction > 0 )
-      {
-	Stat.StartMin /= Correction;
-	Stat.StartMax /= Correction;
-	Stat.StopMin /= Correction;
-	Stat.StopMax /= Correction;
-      }
-      if( abs( Stat.VelocityMax ) > VelocityThreshold || abs( Stat.VelocityMin ) > VelocityThreshold )
-	Stat.Result |= VelocityError;
+	if( Note.velocity_diff() > mStat.VelocityMax ) mStat.VelocityMax = Note.velocity_diff();
+	if( Note.velocity_diff() < mStat.VelocityMin ) mStat.VelocityMin = Note.velocity_diff();
+      } //! \todo (below) Remove all access to the Original's member variables.
+    double Correction = Original.division() / 120.0;
+    if( abs( mStat.StartMax ) > Original.StartThreshold * Correction || abs( mStat.StartMin ) > Original.StartThreshold * Correction
+	|| abs( mStat.StopMax ) > Original.StopThreshold * Correction || abs( mStat.StopMin ) > Original.StopThreshold * Correction )
+      mStat.Result |= RythmError;
+    if( Correction > 0 ) {
+      mStat.StartMin /= Correction;
+      mStat.StartMax /= Correction;
+      mStat.StopMin /= Correction;
+      mStat.StopMax /= Correction;
     }
-    return Stat.Result;
-  } // compare( NotesStat& )
+    if( abs( mStat.VelocityMax ) > Original.VelocityThreshold || abs( mStat.VelocityMin ) > Original.VelocityThreshold )
+      mStat.Result |= VelocityError;
+    return mStat.Result;
+  } // compare( const ExerciseSequence& )
 
   void ExerciseSequence::clear()
-  {
-    while( !Tracks.empty() )
-    {
-      delete Tracks.back();
-      Tracks.pop_back();
-    }
+  { //! \todo Thread protection
+    for( auto Try : mPlayed ) delete Try;
+    mPlayed.clear();
+    for( auto Note : mOriginal ) delete Note;
+    mOriginal.clear();
+    for( auto Track : Tracks ) delete Track;
+    Tracks.clear();
     if( Play ) delete Play;
     Play = nullptr;
     Type = 0;
@@ -368,7 +335,6 @@ namespace MuTraTrain {
   void ExerciseSequence::new_take()
   {
     add_track(); // Record
-    PlayedStart = -1;
     PlayedStartuS = 0;
   } // new_take()
 } // MuTraTrain

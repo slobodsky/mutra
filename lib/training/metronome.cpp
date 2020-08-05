@@ -51,11 +51,18 @@ namespace MuTraTrain {
   void Metronome::timer( int Count, int64_t Target, int64_t Now ) {
     if( mSequencer ) {
       mSequencer->note_on( 9, mOptions.note(), mOptions.velocity() );
-      if( ( Count % mOptions.beat() ) == 0 ) mSequencer->note_on( 9, mOptions.power_note(), mOptions.power_velocity() );
+      if( ( Count % mOptions.beat() ) == 0 ) {
+	mSequencer->note_on( 9, mOptions.power_note(), mOptions.power_velocity() );
+#ifdef MUTRA_DEBUG
+	cout << "POWER ";
+#endif // MUTRA_DEBUG
+      }
+#ifdef MUTRA_DEBUG
+      cout << "Beat @\t" << get_time_us() << endl;
+#endif // MUTRA_DEBUG
     }
   } // tiemr( int, int64_t, int64_t )
 
-#define MUTRA_DEBUG
   void NoteTrainer::new_note() {
     mTargetNote = mLowNote + random() % (mHighNote-mLowNote+1);
 #ifdef MUTRA_DEBUG

@@ -1335,15 +1335,14 @@ namespace MuTraWidgets {
     mMetronome->stop();
     if( !mEchoConnector ) mInput->stop();
     remove_input_client( *mExercise );
-    ExerciseSequence::NotesStat Stats;
-    switch( mExercise->compare( Stats ) ) {
-    case ExerciseSequence::NoError: mSequencer->note_on( 9, 74, 100 ); break;
-    case ExerciseSequence::NoteError: mSequencer->note_on( 9, 78, 100 ); break;
-    case ExerciseSequence::RythmError: mSequencer->note_on( 9, 84, 100 ); break;
-    case ExerciseSequence::VelocityError: mSequencer->note_on( 9, 81, 100 ); break;
-    case ExerciseSequence::EmptyPlay:
-    default:
-      break;
+    mExercise->compare();
+    const ExerciseSequence::NotesStat& Stats = mExercise->results().back()->stat();
+    if( Stats.Result == ExerciseSequence::NoError ) mSequencer->note_on( 9, 74, 100 );
+    else {
+      if( Stats.Result & ExerciseSequence::NoteError ) mSequencer->note_on( 9, 78, 100 );
+      if( Stats.Result & ExerciseSequence::RythmError ) mSequencer->note_on( 9, 84, 100 );
+      if( Stats.Result & ExerciseSequence::VelocityError ) mSequencer->note_on( 9, 81, 100 );
+      if( Stats.Result & ExerciseSequence::EmptyPlay ) qDebug() << "Warning: the play is empty." << endl;
     }
     if( mLesson ) mLesson->new_stat( Stats );
     if( mStats ) mStats->add_stat( Stats );

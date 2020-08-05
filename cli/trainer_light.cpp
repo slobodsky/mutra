@@ -83,8 +83,9 @@ int main() {
 	      //! \todo Make some callback when the exercise time is out.
 	      while( !Ex.beat() ) sleep( 1 );
 	      Metr.stop();
-	      ExerciseSequence::NotesStat Stat;
-	      if( Ex.compare( Stat ) == ExerciseSequence::NoError ) {
+	      Ex.compare();
+	      const ExerciseSequence::NotesStat& Stat = Ex.results().back()->stat();
+	      if( Stat.Result == ExerciseSequence::NoError ) {
 		--Repeats;
 		cout << "No errors!" << endl;
 		Seq->note_on( 9, 74, 100 );
