@@ -92,6 +92,7 @@ namespace MuTraMIDI {
       Time = ( TempoTime + int64_t( Clock-TempoClock ) * Tempo / Division );
       wait_for_usec( Start + Time );
     } // wait_for( unsigned )
+    unsigned division() const { return Division; }
     virtual void division( unsigned MIDIClockForQuarter ) { Division = MIDIClockForQuarter; }
     unsigned tempo() const { return Tempo; }
     virtual void tempo( unsigned uSecForQuarter ) {

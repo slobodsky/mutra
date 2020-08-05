@@ -196,14 +196,22 @@ namespace MuTraTrain {
 	if( align_start() > 0 ) { //! \todo Make this ugly code clean.
 	  int BaruS = bar_us();
 	  int Offset = ( PlayedStartuS - align_start() ) % BaruS;
-	  int OriginalToBar = OriginalStart % bar_clocks();
-	  Offset -= clocks_to_us( OriginalToBar );
-	  if( Offset > BaruS / 2 ) Offset -= BaruS;
+	  int OriginalToBar = clocks_to_us( OriginalStart % bar_clocks() );
+#define MUTRA_BEAT_ALIGN
+#ifdef MUTRA_BEAT_ALIGN
+	  int BeatuS = beat_us();
+	  int Diff = Offset - OriginalToBar;
+	  if( Diff % BeatuS > BeatuS / 1.5 ) Diff = Diff / BeatuS + 1;
+	  else Diff /= BeatuS;
+	  Offset += Diff * BeatuS;
+#endif // MUTRA_BEAT_ALIGN
+	  Offset -= OriginalToBar;
+	  if( Offset > BaruS / 1.5 ) Offset -= BaruS;
 	  cout << "Align to " << Offset << " µs, PlayedStart " << PlayedStartuS << " align: " << align_start() << " tempo: " << tempo() << " diff: " << PlayedStartuS - align_start() << endl;
 	  PlayedStartuS -= Offset;
 	}
       }
-      else return; // throw away events before start
+      else return; // Skip events before start
     }
     int EvClock = us_to_clocks( EvTime-PlayedStartuS ) + OriginalStart;
 #ifdef MUTRA_DEBUG

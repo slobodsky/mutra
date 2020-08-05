@@ -135,19 +135,26 @@ namespace MuTraWidgets {
 
   struct Note {
     Note( int Value, int Velocity = 127, int Start = 0, int Stop = -1, int Channel = 0, int Track = 0 )
-      : mValue( Value ), mVelocity( Velocity ), mStart( Start ), mStop( Stop ), mChannel( Channel ), mTrack( Track ) {}
+      : mValue( Value ), mStart( Start ), mStop( Stop ), mChannel( Channel ), mTrack( Track ), mVelocity( Velocity ), mOriginal( nullptr ) {}
+    Note( const ExerciseSequence::PlayedNote& N, int Track )
+      : mValue( N.note() ), mStart( N.start() ), mStop( N.stop() ), mChannel( 0 ), mTrack( Track ), mVelocity( N.velocity() ), mOriginal( N.original() ) {}
     int mValue;
     int mStart;
     int mStop;
     int mChannel;
     int mTrack;
     int mVelocity;
+    const ExerciseSequence::OriginalNote* mOriginal;
     bool operator<( const Note& Other ) const {
       if( mStart < Other.mStart ) return true;
       if( mStart > Other.mStart ) return false;
       if( mStop < Other.mStop ) return true;
       if( mStop > Other.mStop ) return false;
-      return mTrack < Other.mTrack;
+      if( mTrack < Other.mTrack ) return true;
+      if( mTrack > Other.mTrack ) return false;
+      if( mChannel < Other.mChannel ) return true;
+      if( mChannel > Other.mChannel ) return false;
+      return mValue < Other.mValue;
     }
   }; // Note
 
@@ -161,30 +168,36 @@ namespace MuTraWidgets {
       int Finish;
       TrackInfo( int Delay0 = -2000000, int High0 = -1, int Low0 = 128, int Finish0 = 0 ) : Delay( Delay0 ), High( High0 ), Low( Low0 ), Finish( Finish0 ) {}
     }; // TrackInfo
-    NotesListBuilder( int TracksNum = 1 ) : Infos( nullptr ), Beats( 4 ), Measure( 2 ), Tonal( 0 ), Minor( false ) {
-      Infos = new TrackInfo[ TracksNum ]; // The number must be correct or this will crush. Maybe use vecror & resize it?
-    }
-    ~NotesListBuilder() { if( Infos ) delete [] Infos; }
+    NotesListBuilder( int TracksNum = 0 ) : mTracksNum( TracksNum ), mInfos( nullptr ), mBeats( 4 ), mMeasure( 2 ), mTonal( 0 ), mMinor( false )
+    { if( mTracksNum > 0 ) mInfos = new TrackInfo[ mTracksNum ]; } // The number must be correct or this will crush. Maybe use vecror & resize it?
+    NotesListBuilder( MIDISequence* Sequence ) : mTracksNum( 0 ), mInfos( nullptr ), mBeats( 4 ), mMeasure( 2 ), mTonal( 0 ), mMinor( false ) {
+      if( Sequence ) {
+	mTracksNum = Sequence->tracks().size();
+	if( mTracksNum > 0 ) mInfos = new TrackInfo[ mTracksNum ]; // The number must be correct or this will crush. Maybe use vecror & resize it?
+	Sequence->play( *this );
+      }
+    } // NotesListBuilder( MIDISequence* )
+    ~NotesListBuilder() { if( mInfos ) delete [] mInfos; }
     void key_signature( int NewTonal, bool NewMinor ) override {
-      Tonal = NewTonal;
-      Minor = NewMinor;
+      mTonal = NewTonal;
+      mMinor = NewMinor;
     } // key_signature( int Tonal, bool )
     void note_on( int Channel, int Value, int Velocity ) {
-      if( Velocity == 0 ) note_off( Channel, Value, Velocity );
+      if( Velocity <= 0 ) note_off( Channel, Value, Velocity );
       else {
 #ifdef MUTRA_DEBUG
 	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
 #endif  //! \todo Use track & channel
-	if( Infos[ Track ].Delay < -1000000 ) Infos[ Track ].Delay = Clock;
-	if( Infos[ Track ].Low > Value ) Infos[ Track ].Low = Value;
-	if( Infos[ Track ].High < Value ) Infos[ Track ].High = Value;
-	if( Infos[ Track ].Finish < Clock ) Infos[ Track ].Finish = Clock;
-	Notes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
+	if( mInfos[ Track ].Delay < -1000000 ) mInfos[ Track ].Delay = Clock;
+	if( mInfos[ Track ].Low > Value ) mInfos[ Track ].Low = Value;
+	if( mInfos[ Track ].High < Value ) mInfos[ Track ].High = Value;
+	if( mInfos[ Track ].Finish < Clock ) mInfos[ Track ].Finish = Clock;
+	mNotes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
       }
-    }
+    } // note_on( int, int, int )
     void note_off( int Channel, int Value, int Velocity ) {
-      if( Infos[ Track ].Finish < Clock ) Infos[ Track ].Finish = Clock;
-      for( auto It = Notes.rbegin(); It != Notes.rend(); ++It )
+      if( mInfos[ Track ].Finish < Clock ) mInfos[ Track ].Finish = Clock;
+      for( auto It = mNotes.rbegin(); It != mNotes.rend(); ++It )
 	if( It->mValue == Value && It->mChannel == Channel && It->mTrack == Track && It->mStop < 0 && It->mStart <= Clock ) {
 	  It->mStop = Clock;
 	  return;
@@ -195,52 +208,52 @@ namespace MuTraWidgets {
 #ifdef MUTRA_DEBUG
       qDebug() << "Metar: " << Numerator << "/" << Denominator;
 #endif
-      Beats = Numerator;
-      Measure = Denominator;
+      mBeats = Numerator;
+      mMeasure = Denominator;
     } // meter( int, int )
     void start() { Time = 0; Clock = 0; }
     void wait_for( unsigned WaitClock ) { Clock = WaitClock; Time = Clock * tempo(); }
-    vector<Note> Notes;
-    TrackInfo* Infos;
+    vector<Note> mNotes;
+    int mTracksNum;
+    TrackInfo* mInfos;
 
-    int Beats;
-    int Measure;
-    int Tonal;
-    bool Minor;
+    int mBeats;
+    int mMeasure;
+    int mTonal;
+    bool mMinor;
   }; // NotesListBuilder
 
   //! \todo Move these globals into PianoRollView etc.
   const int ColorsNum = 7;
   QColor Colors[] = { QColor( 128, 128, 128, 64 ), QColor( 0, 255, 0, 64 ), QColor( 0, 255, 255, 64 ), QColor( 0, 0, 255, 64 ), QColor( 255, 0, 255, 64 ), QColor( 255, 0, 0, 64 ), QColor( 255, 255, 0, 64 ) };
   PianoRollView::PianoRollView( QWidget* Parent ) : QGraphicsView( Parent ), Keyboard( nullptr ) {} // PianoRollView( QWidget* )
-  void PianoRollView::update_piano_roll( MIDISequence* Sequence ) {
+  void PianoRollView::update_piano_roll( MIDISequence* Sequence ) { update_piano_roll( NotesListBuilder( Sequence ) ); } // update_piano_roll( MIDISequence* Sequence )
+  void PianoRollView::update_piano_roll( const NotesListBuilder& NL ) {
     QGraphicsScene* Sc = new QGraphicsScene( this );
     Sc->setBackgroundBrush( QColor( 72, 72, 72 ) );
     int SceneLeft = 0;
-    if( Sequence ) {
-      int TracksCount = Sequence->tracks().size();
+    if( NL.mTracksNum > 0 ) {
+      int TracksCount = NL.mTracksNum;
       int DrawTracks = TracksCount < 4 ? TracksCount : 4;
-      NotesListBuilder NL( TracksCount );
-      Sequence->play( NL );
-      int Div = Sequence->division() * ( 4.0 / ( 1 << NL.Measure ) );
+      int Div = NL.division() * ( 4.0 / ( 1 << NL.mMeasure ) );
       qreal K = Div / 32.0;
       qreal H = DrawTracks < 5 ? 16 : DrawTracks * 4;
       qreal BarH = H / DrawTracks;
 #ifdef MUTRA_DEBUG
-      qDebug() << "We have" << NL.Notes.size() << "notes.";
+      qDebug() << "We have" << NL.mNotes.size() << "notes.";
       for( int I = 0; I < TracksCount; ++I )
-	qDebug() << "Track" << I << "delay" << NL.Infos[ I ].Delay;
+	qDebug() << "Track" << I << "delay" << NL.mInfos[ I ].Delay;
 #endif
       int Finish = 0;
       int Low = 127;
       int High = 0;
       for( int I = 0; I < TracksCount; ++I ) {
-	if( NL.Infos[ I ].Finish > Finish ) Finish = NL.Infos[ I ].Finish;
-	if( NL.Infos[ I ].Low < Low ) Low = NL.Infos[ I ].Low;
-	if( NL.Infos[ I ].High > High ) High = NL.Infos[ I ].High;
+	if( NL.mInfos[ I ].Finish > Finish ) Finish = NL.mInfos[ I ].Finish;
+	if( NL.mInfos[ I ].Low < Low ) Low = NL.mInfos[ I ].Low;
+	if( NL.mInfos[ I ].High > High ) High = NL.mInfos[ I ].High;
       }
       {
-	int BarLength = Div * NL.Beats;
+	int BarLength = Div * NL.mBeats;
 	int LengthAlign = Finish % BarLength;
 	if( LengthAlign > 0 ) Finish += BarLength - LengthAlign;
       }	   
@@ -254,7 +267,7 @@ namespace MuTraWidgets {
 	int Beat = 0;
 	for( int X = 0; X < Finish; X += Div ) {
 	  QPen Pen;
-	  if( NL.Beats != 0 && Beat % NL.Beats == 0 ) Pen = QPen( Qt::black, 2 );
+	  if( NL.mBeats != 0 && Beat % NL.mBeats == 0 ) Pen = QPen( Qt::black, 2 );
 	  ++Beat;
 	  Sc->addLine( X / K, Top, X /K, Bottom, Pen );
 	}
@@ -269,7 +282,7 @@ namespace MuTraWidgets {
 	for( qreal Y = BarsBottom; Y > BarsTop; Y -= 12.8 ) Sc->addLine( 0, Y, Finish / K, Y );
 	Sc->addLine( 0, BarsBottom - 64, Finish / K, BarsBottom - 64, SemiBoldPen );
       }
-      for( Note N: NL.Notes ) {
+      for( Note N: NL.mNotes ) {
 #ifdef MUTRA_DEBUG
 	qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
 #endif
@@ -410,10 +423,10 @@ namespace MuTraWidgets {
       Sc->addItem( Sign );
       Sign->setPos( StartX + GClefOffsetX, Bottom - FClefOffsetY );
       NotesStartX += GClefOffsetX + ClefsWidth;
-      if( NL.Tonal ) {
+      if( NL.mTonal ) {
 	int Start = 0;
 	int Step = 1;
-	int Stop = NL.Tonal;
+	int Stop = NL.mTonal;
 	QString SignName = ":/images/sharp.svg";
 	if( Stop < 0 ) {
 	  Start = 6;
@@ -433,35 +446,35 @@ namespace MuTraWidgets {
 	}
       }
       int TextOffsetY = -1.25 * LinesSpacing;
-      QGraphicsTextItem* Text = Sc->addText( QString::number( NL.Beats ) );
+      QGraphicsTextItem* Text = Sc->addText( QString::number( NL.mBeats ) );
       Text->setPos( NotesStartX, TextOffsetY );
       Text->setDefaultTextColor( Qt::black ); //!< \todo There definetly has to be a method to set all text to black. Maybe palette's color in scene. But not now.
-      Text = Sc->addText( QString::number( 1 << NL.Measure ) );
+      Text = Sc->addText( QString::number( 1 << NL.mMeasure ) );
       Text->setPos( NotesStartX, TextOffsetY + LinesSpacing * 2 );
       Text->setDefaultTextColor( Qt::black );
-      Text = Sc->addText( QString::number( NL.Beats ) );
+      Text = Sc->addText( QString::number( NL.mBeats ) );
       TextOffsetY += 6 * LinesSpacing;
       Text->setPos( NotesStartX, TextOffsetY );
       Text->setDefaultTextColor( Qt::black ); //!< \todo There definetly has to be a method to set all text to black. Maybe palette's color in scene. But not now.
-      Text = Sc->addText( QString::number( 1 << NL.Measure ) );
+      Text = Sc->addText( QString::number( 1 << NL.mMeasure ) );
       Text->setPos( NotesStartX, TextOffsetY + LinesSpacing * 2 );
       Text->setDefaultTextColor( Qt::black );
       NotesStartX += Text->boundingRect().width() + SignsOffsetX * 2;
       int LastBar = 0;
-      int BarLength = ( NL.Beats * Div ) / (( 1 << NL.Measure ) / 4.0 );
+      int BarLength = ( NL.mBeats * Div ) / (( 1 << NL.mMeasure ) / 4.0 );
       int End = LastBar;
       int Thresh = Div / 16; // 1/64 note
-      for( int I = 0; I < NL.Notes.size(); ++I )
-	if( NL.Notes[ I ].mTrack == 0 ) { //! \todo Allow tracks selection.
-	  if( NL.Notes[ I ].mStart > End+Thresh ) { // This stands for the rest
-	    NL.Notes.insert( NL.Notes.begin() + I, Note( 60, -1, End, NL.Notes[ I ].mStart-1, NL.Notes[ I ].mChannel, NL.Notes[ I ].mTrack ) );
+      for( int I = 0; I < NL.mNotes.size(); ++I )
+	if( NL.mNotes[ I ].mTrack == 0 ) { //! \todo Allow tracks selection.
+	  if( NL.mNotes[ I ].mStart > End+Thresh ) { // This stands for the rest
+	    NL.mNotes.insert( NL.mNotes.begin() + I, Note( 60, -1, End, NL.mNotes[ I ].mStart-1, NL.mNotes[ I ].mChannel, NL.mNotes[ I ].mTrack ) );
 	    ++I;
 	  }
-	  if( NL.Notes[ I ].mStop > End ) End = NL.Notes[ I ].mStop;
+	  if( NL.mNotes[ I ].mStop > End ) End = NL.mNotes[ I ].mStop;
 	}
       if( int Tail = End % BarLength ) {
-	Note& N = NL.Notes.back();
-	NL.Notes.push_back( Note( 60, -1, End, End + BarLength - Tail, 0, 0 ) );
+	Note& N = NL.mNotes.back();
+	NL.mNotes.push_back( Note( 60, -1, End, End + BarLength - Tail, 0, 0 ) );
 	End += BarLength - Tail;
       }
       int NoteWidth = 10;
@@ -472,16 +485,16 @@ namespace MuTraWidgets {
       int NoteIndex = 0;
       bool Rest = true;
       while( LastBar < End ) {
-	while( NoteIndex < NL.Notes.size() && NL.Notes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
+	while( NoteIndex < NL.mNotes.size() && NL.mNotes[ NoteIndex ].mTrack != 0 ) ++NoteIndex; // ATM draw only the first track
 	int NoteStart = 0;
 	int NoteLength = 0;
 	int NoteValue = 60;
 	QPointF TieFrom;
-	if( NoteIndex < NL.Notes.size() && ( Ties.empty() || NL.Notes[ NoteIndex ].mStart < Ties.front().mStart ) ) {
-	  NoteStart = NL.Notes[ NoteIndex ].mStart;
-	  NoteLength = NL.Notes[ NoteIndex ].mStop - NL.Notes[ NoteIndex ].mStart;
-	  NoteValue = NL.Notes[ NoteIndex ].mValue;
-	  Rest = NL.Notes[ NoteIndex ].mVelocity < 0;
+	if( NoteIndex < NL.mNotes.size() && ( Ties.empty() || NL.mNotes[ NoteIndex ].mStart < Ties.front().mStart ) ) {
+	  NoteStart = NL.mNotes[ NoteIndex ].mStart;
+	  NoteLength = NL.mNotes[ NoteIndex ].mStop - NL.mNotes[ NoteIndex ].mStart;
+	  NoteValue = NL.mNotes[ NoteIndex ].mValue;
+	  Rest = NL.mNotes[ NoteIndex ].mVelocity < 0;
 	  ++NoteIndex;
 	}
 	else if( Ties.empty() ) NoteStart = End;

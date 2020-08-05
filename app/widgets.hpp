@@ -109,12 +109,14 @@ namespace MuTraWidgets {
     ScoresView( QWidget* Parent );
     void update_scores( MuTraMIDI::MIDISequence* Sequence = nullptr );
   }; // ScoresView
+  class NotesListBuilder;
   class PianoRollView : public QGraphicsView {
     Q_OBJECT
   public:
     PianoRollView( QWidget* Parent = nullptr );
     void update_piano_roll( MuTraMIDI::MIDISequence* Sequence = nullptr );
   protected:
+    void update_piano_roll( const NotesListBuilder& NL );
     void scrollContentsBy( int DX, int DY ) override;
     void resizeEvent( QResizeEvent* Ev ) override;
     void moveKeyboard();
