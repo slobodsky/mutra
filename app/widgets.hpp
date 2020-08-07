@@ -50,12 +50,8 @@ namespace MuTraWidgets {
   struct ExerciseOptions {
     ExerciseOptions();
     ExerciseOptions( const MuTraTrain::ExerciseSequence& Ex );
-    int note_on_low() const { return StartThreshold; }
-    ExerciseOptions& note_on_low( int NewLimit ) { StartThreshold = NewLimit; return *this; }
-    int note_off_low() const { return StopThreshold; }
-    ExerciseOptions& note_off_low( int NewLimit ) { StopThreshold = NewLimit; return *this; }
-    int velocity_low() const { return VelocityThreshold; }
-    ExerciseOptions& velocity_low( int NewLimit ) { VelocityThreshold = NewLimit; return *this; }
+    const MuTraTrain::ExerciseLimits& limits() const { return mLimits; }
+    ExerciseOptions& limits( const MuTraTrain::ExerciseLimits& NewLimits ) { mLimits = NewLimits; return *this; }
     int fragment_start() const { return Start; }
     ExerciseOptions& fragment_start( int NewStart ) { Start = NewStart; return *this; }
     int fragment_duration() const { return Duration; }
@@ -74,9 +70,7 @@ namespace MuTraWidgets {
     ExerciseOptions& channel( int Index, bool NewValue );
     bool set_to( MuTraTrain::ExerciseSequence& Exercise ) const;
   private:
-    int StartThreshold;
-    int StopThreshold;
-    int VelocityThreshold;
+    MuTraTrain::ExerciseLimits mLimits;
     int Start;
     int Duration;
     double TempoSkew;
@@ -115,8 +109,8 @@ namespace MuTraWidgets {
   public:
     PianoRollView( QWidget* Parent = nullptr );
     void update_piano_roll( MuTraMIDI::MIDISequence* Sequence = nullptr );
-  protected:
     void update_piano_roll( const NotesListBuilder& NL );
+  protected:
     void scrollContentsBy( int DX, int DY ) override;
     void resizeEvent( QResizeEvent* Ev ) override;
     void moveKeyboard();

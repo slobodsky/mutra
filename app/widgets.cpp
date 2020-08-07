@@ -29,6 +29,7 @@ using MuTraMIDI::Transposer;
 using MuTraMIDI::Names;
 using MuTraMIDI::MIDIBackend;
 using MuTraTrain::MetronomeOptions;
+using MuTraTrain::ExerciseLimits;
 using MuTraTrain::ExerciseSequence;
 using MuTraTrain::NoteTrainer;
 using MuTraTrain::Lesson;
@@ -81,11 +82,10 @@ namespace MuTraWidgets {
     Set.setValue( "Metronome/PowerVelocity", Options.power_velocity() );
   } // save_to_settings( const MetronomeOptions& )
 
-  ExerciseOptions::ExerciseOptions() : StartThreshold( 45 ), StopThreshold( 60 ), VelocityThreshold( 30 ), Start( 0 ), Duration( 0 ), TempoSkew( 1 ), TracksNum( 1 ), Tracks( 1 ), Channels( 0xFFFF ) {}
+  ExerciseOptions::ExerciseOptions() : mLimits( 45, 45, 60, 60, 30, 30 ), Start( 0 ), Duration( 0 ), TempoSkew( 1 ), TracksNum( 1 ), Tracks( 1 ), Channels( 0xFFFF ) {}
   ExerciseOptions::ExerciseOptions( const ExerciseSequence& Ex )
-    : StartThreshold( Ex.StartThreshold ), StopThreshold( Ex.StopThreshold ), VelocityThreshold( Ex.VelocityThreshold ), Start( Ex.StartPoint ),
-      Duration( Ex.StopPoint < 0 ? -1 : Ex.StopPoint - Ex.StartPoint ), TempoSkew( Ex.TempoSkew ), TracksNum( Ex.play() ? Ex.play()->tracks_num() : 0 ), Tracks( Ex.tracks_filter() ),
-      Channels( Ex.channels() ) {}
+    : mLimits( Ex.limits() ), Start( Ex.StartPoint ), Duration( Ex.StopPoint < 0 ? -1 : Ex.StopPoint - Ex.StartPoint ), TempoSkew( Ex.TempoSkew ), TracksNum( Ex.play() ? Ex.play()->tracks_num() : 0 ),
+      Tracks( Ex.tracks_filter() ), Channels( Ex.channels() ) {}
   ExerciseOptions& ExerciseOptions::track( int Index, bool NewValue ) {
     if( Index >= 0 && Index < tracks_count() ) {
       if( NewValue ) Tracks |= ( 1 << Index );
@@ -101,9 +101,7 @@ namespace MuTraWidgets {
     return *this;
   } // channel( int, bool )
   bool ExerciseOptions::set_to( MuTraTrain::ExerciseSequence& Exercise ) const {
-    Exercise.StartThreshold = note_on_low();
-    Exercise.StopThreshold = note_off_low();
-    Exercise.VelocityThreshold = velocity_low();
+    Exercise.limits( mLimits );
     Exercise.TempoSkew = tempo_skew();
     int Finish = fragment_duration() < 0 ? -1 : fragment_start() + fragment_duration();
     if( Exercise.StartPoint != fragment_start() || Exercise.StopPoint != Finish || Exercise.tracks_filter() != tracks() || Exercise.channels() != channels() ) {
@@ -116,20 +114,37 @@ namespace MuTraWidgets {
     }
     return false;
   } // set_to( MuTraTrain::ExerciseSequence& ) const
+  ExerciseLimits& load_from_settings( ExerciseLimits& Limits, const QString& Prefix = QString() ) {
+    QSettings Set;
+    Limits.StartFore = Set.value( Prefix + "StartFore", Limits.StartFore ).toInt();
+    Limits.StartLate = Set.value( Prefix + "StartLate", Limits.StartLate ).toInt();
+    Limits.StopFore = Set.value( Prefix + "StopFore", Limits.StopFore ).toInt();
+    Limits.StopLate = Set.value( Prefix + "StopLate", Limits.StopLate ).toInt();
+    Limits.VelocityLower = Set.value( Prefix + "VelocityLower", Limits.VelocityLower ).toInt();
+    Limits.VelocityHigher = Set.value( Prefix + "VelocityHigher", Limits.VelocityHigher ).toInt();
+    return Limits;
+  } // load_from_settings( ExerciseLimits& Limits, const QString& )
+  void save_to_settings( const ExerciseLimits& Limits, const QString& Prefix = QString() ) {
+    QSettings Set;
+    // Save exercise settings
+    Set.setValue( Prefix + "StartFore", Limits.StartFore );
+    Set.setValue( Prefix + "StartLate", Limits.StartLate );
+    Set.setValue( Prefix + "StopFore", Limits.StopFore );
+    Set.setValue( Prefix + "StopLate", Limits.StopLate );
+    Set.setValue( Prefix + "VelocityLower", Limits.VelocityLower );
+    Set.setValue( Prefix + "VelocityHigher", Limits.VelocityHigher );
+  } // save_to_settings( const ExerciseLimits&, const QString& )
   void load_from_settings( ExerciseOptions& Options ) {
     QSettings Set;
     // Load exercise settings
-    Options.note_on_low( Set.value( "Exercise/StartThreshold", Options.note_on_low() ).toInt() );
-    Options.note_off_low( Set.value( "Exercise/StopThreshold", Options.note_off_low() ).toInt() );
-    Options.velocity_low( Set.value( "Exercise/VelocityThreshold", Options.velocity_low() ).toInt() );
+    ExerciseLimits Limits = Options.limits();
+    Options.limits( load_from_settings( Limits, "Exercise/Limits/" ) );
     Options.fragment_duration( Set.value( "Exercise/Duration", -1 ).toInt() );
   } // load_from_settings()
   void save_to_settings( const ExerciseOptions& Options ) {
     QSettings Set;
     // Save exercise settings
-    Set.setValue( "Exercise/StartThreshold", Options.note_on_low() );
-    Set.setValue( "Exercise/StopThreshold", Options.note_off_low() );
-    Set.setValue( "Exercise/VelocityThreshold", Options.velocity_low() );
+    save_to_settings( Options.limits(), "Exercise/Limits/" );
     Set.setValue( "Exercise/Duration", Options.fragment_duration() );
   } // save_to_settings()
 
@@ -177,33 +192,52 @@ namespace MuTraWidgets {
 	Sequence->play( *this );
       }
     } // NotesListBuilder( MIDISequence* )
+    NotesListBuilder( ExerciseSequence& Sequence ) : mTracksNum( 0 ), mInfos( nullptr ), mBeats( 4 ), mMeasure( 2 ), mTonal( 0 ), mMinor( false ), mLimits( Sequence.limits() ) {
+      mTracksNum = Sequence.results().size() + 1;
+      mInfos = new TrackInfo[ mTracksNum ];
+      start();
+      division( Sequence.division() );
+      meter( Sequence.Numerator, Sequence.Denominator );
+      key_signature( Sequence.Tonal, Sequence.Minor );
+      for( ExerciseSequence::OriginalNote* N : Sequence.original() ) add_note( Note( N->note(), N->velocity(), N->start(), N->stop(), N->channel() ) );
+      int Track = 1;
+      for( ExerciseSequence::TryResult* Res : Sequence.results() ) {
+	for( const ExerciseSequence::PlayedNote& N : Res->notes() )
+	  add_note( Note( N, Track ) );
+	++Track;
+      }
+    } // NotesListBuilder( MIDISequence* )
     ~NotesListBuilder() { if( mInfos ) delete [] mInfos; }
+    void add_note( const Note& NewNote ) {
+#ifdef MUTRA_DEBUG
+      qDebug() << "Add note" << NewNote.mValue << "in channel" << NewNote.mChannel << "of track" << NewNote.mTrack << "@" << NewNote.mStart << '-' << NewNote.mStop;
+#endif  //! \todo Use track & channel
+      TrackInfo& Info = mInfos[ NewNote.mTrack ];
+      if( Info.Delay < -1000000 ) Info.Delay = NewNote.mStart;
+      if( Info.Low > NewNote.mValue ) Info.Low = NewNote.mValue;
+      if( Info.High < NewNote.mValue ) Info.High = NewNote.mValue;
+      int Stop = NewNote.mStart;
+      if( NewNote.mStop > Stop ) Stop = NewNote.mStop;
+      if( Info.Finish < Stop ) Info.Finish = Stop;
+      mNotes.push_back( NewNote );
+    } // add_note( const Note& )
     void key_signature( int NewTonal, bool NewMinor ) override {
       mTonal = NewTonal;
       mMinor = NewMinor;
     } // key_signature( int Tonal, bool )
-    void note_on( int Channel, int Value, int Velocity ) {
+    void note_on( int Channel, int Value, int Velocity ) override {
       if( Velocity <= 0 ) note_off( Channel, Value, Velocity );
-      else {
-#ifdef MUTRA_DEBUG
-	qDebug() << "Add note" << Value << "in channel" << Channel << "of track" << Track << "@" << Clock;
-#endif  //! \todo Use track & channel
-	if( mInfos[ Track ].Delay < -1000000 ) mInfos[ Track ].Delay = Clock;
-	if( mInfos[ Track ].Low > Value ) mInfos[ Track ].Low = Value;
-	if( mInfos[ Track ].High < Value ) mInfos[ Track ].High = Value;
-	if( mInfos[ Track ].Finish < Clock ) mInfos[ Track ].Finish = Clock;
-	mNotes.push_back( Note( Value, Velocity, Clock, -1, Channel, Track ) );
-      }
+      else add_note( Note( Value, Velocity, Clock, -1, Channel, Track ) );
     } // note_on( int, int, int )
-    void note_off( int Channel, int Value, int Velocity ) {
+    void note_off( int Channel, int Value, int Velocity ) override {
       if( mInfos[ Track ].Finish < Clock ) mInfos[ Track ].Finish = Clock;
-      for( auto It = mNotes.rbegin(); It != mNotes.rend(); ++It )
-	if( It->mValue == Value && It->mChannel == Channel && It->mTrack == Track && It->mStop < 0 && It->mStart <= Clock ) {
-	  It->mStop = Clock;
+      for( Note& N : mNotes )
+	if( N.mValue == Value && N.mChannel == Channel && N.mTrack == Track && N.mStop < 0 && N.mStart <= Clock ) {
+	  N.mStop = Clock;
 	  return;
 	}
-      qDebug() << "Note" << Value << "in channel" << Channel << "not found for stop @" << Clock;
-    }
+      qDebug() << "Note" << Value << "in channel" << Channel << "of track" << Track << "not found for stop @" << Clock;
+    } // note_off( int, int, int )
     void meter( int Numerator, int Denominator ) {
 #ifdef MUTRA_DEBUG
       qDebug() << "Metar: " << Numerator << "/" << Denominator;
@@ -221,6 +255,8 @@ namespace MuTraWidgets {
     int mMeasure;
     int mTonal;
     bool mMinor;
+
+    ExerciseLimits mLimits;
   }; // NotesListBuilder
 
   //! \todo Move these globals into PianoRollView etc.
@@ -282,6 +318,7 @@ namespace MuTraWidgets {
 	for( qreal Y = BarsBottom; Y > BarsTop; Y -= 12.8 ) Sc->addLine( 0, Y, Finish / K, Y );
 	Sc->addLine( 0, BarsBottom - 64, Finish / K, BarsBottom - 64, SemiBoldPen );
       }
+      double Correction = NL.division() != 0 ? 120.0 / NL.division() : 1;
       for( Note N: NL.mNotes ) {
 #ifdef MUTRA_DEBUG
 	qDebug() << "Note" << N.mValue << "in track" << N.mTrack << "[" << N.mStart << "-" << N.mStop;
@@ -293,11 +330,40 @@ namespace MuTraWidgets {
 	QColor Clr = Colors[ TrackPlace % ColorsNum ];
 	Clr.setAlphaF( N.mVelocity / 127.0 );
 	int Start = N.mStart / K;
-	int Stop = (N.mStop < 0 ? Div : N.mStop-N.mStart) / K;
-	Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, QPen( N.mStop < 0 ? Qt::red : Qt::white ), QBrush( Clr ) );
+	int Stop = ( N.mStop < 0 ? ( N.mOriginal ? N.mOriginal->stop()-N.mOriginal->start() : Div ) : N.mStop-N.mStart ) / K;
+	QBrush NoteBrush( Clr );
+	QPen NotePen( N.mStop < 0 ? Qt::yellow : Qt::white );
+	if( N.mOriginal && ( N.mStop < 0 || NL.mLimits.check_start( N.mOriginal->start(), N.mStart, Correction ) || NL.mLimits.check_stop( N.mOriginal->stop(), N.mStop, Correction ) ) ) {
+	  QLinearGradient NoteGrad( Start, 0, Start+Stop, 0 );
+	  NoteGrad.setColorAt( 0.5, Clr );
+	  if( NL.mLimits.check_start( N.mOriginal->start(), N.mStart, Correction ) ) {
+	    NoteGrad.setColorAt( 0, Qt::red );
+	    NotePen = QPen( Qt::magenta );
+	  }
+	  else NoteGrad.setColorAt( 0, Clr );
+	  if( N.mStop < 0 ) NoteGrad.setColorAt( 1, Qt::yellow );
+	  else if( NL.mLimits.check_stop( N.mOriginal->stop(), N.mStop, Correction ) ) {
+	    NoteGrad.setColorAt( 1, Qt::red );
+	    NotePen = QPen( Qt::magenta );
+	  }
+	  else NoteGrad.setColorAt( 1, Clr );
+	  NoteBrush = QBrush( NoteGrad );
+	}
+	Sc->addRect( Start, (60-N.mValue) * H + (TrackPlace * BarH), Stop, BarH, NotePen, NoteBrush );
 	if( N.mTrack == 0 || N.mTrack == TracksCount-1 ) {
-	  Sc->addRect( Start, Bottom + H + 127 - N.mVelocity, Stop, N.mVelocity, QPen( N.mTrack == 0 ? Qt::gray : Qt::cyan ),
-		       QBrush( N.mTrack == 0 ? QColor( 0, 255, 80, 32 ) : QColor( 0, 80, 255, 32 ) ) );
+	  QBrush BarBrush( QColor( 0, 255, 80, 32 ) );
+	  QPen BarPen( Qt::gray );
+	  if( N.mTrack != 0 ) {
+	    if( N.mOriginal && NL.mLimits.check_velocity( N.mOriginal->velocity(), N.mVelocity ) ) {
+	      BarBrush = QColor( 255, 80, 0, 32 );
+	      BarPen = QPen( Qt::red );
+	    }
+	    else {
+	      BarBrush = QColor( 0, 80, 255, 32 );
+	      BarPen = QPen( Qt::cyan );
+	    }
+	  }
+	  Sc->addRect( Start, Bottom + H + 127 - N.mVelocity, Stop, N.mVelocity, BarPen, BarBrush );
 	}
       }
       {
@@ -345,7 +411,7 @@ namespace MuTraWidgets {
     setScene( Sc );
     setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
     QPointF Origin = mapToScene( 0, 0 );
-  } // update_piano_roll( MIDISequence* )  
+  } // update_piano_roll( const NotesListBuilder& )  
   void PianoRollView::scrollContentsBy( int DX, int DY ) {
     QGraphicsView::scrollContentsBy( DX, DY );
     moveKeyboard();
@@ -738,9 +804,15 @@ namespace MuTraWidgets {
     mExercisePage->FragmentStart->setValue( NewOptions.fragment_start() );
     mExercisePage->FragmentFinish->setValue( NewOptions.fragment_duration() < 0 ? -1 : NewOptions.fragment_start() + NewOptions.fragment_duration() );
     mExercisePage->TempoPercent->setValue( NewOptions.tempo_skew() * 100 );
-    mExercisePage->NoteOnLow->setValue( NewOptions.note_on_low() );
-    mExercisePage->NoteOffLow->setValue( NewOptions.note_off_low() );
-    mExercisePage->VelocityLow->setValue( NewOptions.velocity_low() );
+    mExercisePage->NoteOnLow->setValue( NewOptions.limits().StartFore );
+    mExercisePage->NoteOnHigh->setValue( NewOptions.limits().StartLate );
+    mExercisePage->NoteOnSame->setChecked( NewOptions.limits().StartFore == NewOptions.limits().StartLate );
+    mExercisePage->NoteOffLow->setValue( NewOptions.limits().StopFore );
+    mExercisePage->NoteOffHigh->setValue( NewOptions.limits().StopLate );
+    mExercisePage->NoteOffSame->setChecked( NewOptions.limits().StopFore == NewOptions.limits().StopLate );
+    mExercisePage->VelocityLow->setValue( NewOptions.limits().VelocityLower );
+    mExercisePage->VelocityHigh->setValue( NewOptions.limits().VelocityHigher );
+    mExercisePage->VelocitySame->setChecked( NewOptions.limits().VelocityLower == NewOptions.limits().VelocityHigher );
     if( TracksChannelsModel* Mod = qobject_cast<TracksChannelsModel*>( mExercisePage->Tracks->model() ) ) {
       Mod->tracks_count( NewOptions.tracks_count() );
       Mod->tracks( NewOptions.tracks() );
@@ -774,7 +846,9 @@ namespace MuTraWidgets {
     int Start = mExercisePage->FragmentStart->value();
     int Finish = mExercisePage->FragmentFinish->value();
     mExercise.fragment_start( Start ).fragment_duration( Finish < 0 ? -1 : Finish >= Start ? Finish - Start : 0 ).tempo_skew( mExercisePage->TempoPercent->value() / 100.0 )
-      .note_on_low( mExercisePage->NoteOnLow->value() ).note_off_low( mExercisePage->NoteOffLow->value() ).velocity_low( mExercisePage->VelocityLow->value() );
+      .limits( ExerciseLimits( mExercisePage->NoteOnLow->value(), mExercisePage->NoteOnSame->isChecked() ? mExercisePage->NoteOnLow->value() : mExercisePage->NoteOnHigh->value(),
+			       mExercisePage->NoteOffLow->value(), mExercisePage->NoteOffSame->isChecked() ? mExercisePage->NoteOffLow->value() : mExercisePage->NoteOffHigh->value(),
+			       mExercisePage->VelocityLow->value(), mExercisePage->VelocitySame->isChecked() ? mExercisePage->VelocityLow->value() : mExercisePage->VelocityHigh->value() ) );
     if( TracksChannelsModel* Mod = qobject_cast<TracksChannelsModel*>( mExercisePage->Tracks->model() ) )
       mExercise.tracks_count( Mod->tracks_count() ).tracks( Mod->tracks() ).channels( Mod->channels() );
     mNoteLow = mNotesPage->LowNote->currentData().toInt() + (mNotesPage->LowOctave->currentData().toInt()+1) * 12;
@@ -1068,7 +1142,10 @@ namespace MuTraWidgets {
     mUI->ActionExercise->setEnabled( mExercise );
   } // update_buttons()
   void MainWindow::update_piano_roll() {
-    if( mPianoRoll ) mPianoRoll->update_piano_roll( mMIDI );
+    if( mPianoRoll ) {
+      if( mExercise ) mPianoRoll->update_piano_roll( *mExercise );
+      else mPianoRoll->update_piano_roll( mMIDI );
+    }
     if( mScores ) mScores->update_scores( mMIDI );
   } // update_piano_roll()
 
@@ -1179,14 +1256,17 @@ namespace MuTraWidgets {
       Dlg.exercise( *mExercise );
       Dlg.original_tempo( 60000000 / mExercise->original_tempo() );
     }
+    else Dlg.exercise( Application::get()->exercise_options() );
     Dlg.notes_options( mNoteLow, mNoteHigh );
     if( Dlg.exec() ) {
+      Application* App = Application::get();
       if( mMetronome ) //!< \todo restart metronome if it was active before changing settings
 	mMetronome->options( Dlg.metronome() );
       //! \todo Change current midi file metronome settings.
-      if( !mMIDI ) Application::get()->metronome_options( Dlg.metronome() );
-      if( mExercise && Dlg.exercise().set_to( *mExercise ) ) update_piano_roll();
-      Application::get()->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
+      if( !mMIDI ) App->metronome_options( Dlg.metronome() );
+      if( mExercise ) {	if( Dlg.exercise().set_to( *mExercise ) ) update_piano_roll(); }
+      else App->exercise_options( Dlg.exercise() );
+      App->system_options( Dlg.system() ); //!< \todo Connect to other devices & set echo if something of these parameters has been changed
       mNoteLow = Dlg.note_low();
       mNoteHigh = Dlg.note_high();
     }

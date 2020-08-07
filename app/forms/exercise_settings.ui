@@ -186,7 +186,7 @@
      <item>
       <widget class="QToolButton" name="NoteOnSame">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>=</string>
@@ -202,7 +202,7 @@
      <item>
       <widget class="QSpinBox" name="NoteOnHigh">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -238,7 +238,7 @@
      <item>
       <widget class="QToolButton" name="NoteOffSame">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>=</string>
@@ -254,7 +254,7 @@
      <item>
       <widget class="QSpinBox" name="NoteOffHigh">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -290,7 +290,7 @@
      <item>
       <widget class="QToolButton" name="VelocitySame">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>=</string>
@@ -306,7 +306,7 @@
      <item>
       <widget class="QSpinBox" name="VelocityHigh">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

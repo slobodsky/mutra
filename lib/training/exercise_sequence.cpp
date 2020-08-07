@@ -10,10 +10,12 @@ using std::find_if;
 using std::for_each;
 using MuTraMIDI::get_time_us;
 using MuTraMIDI::Event;
+using MuTraMIDI::TempoEvent;
 using MuTraMIDI::TimeSignatureEvent;
 using MuTraMIDI::KeySignatureEvent;
 using MuTraMIDI::ChannelEvent;
 using MuTraMIDI::NoteEvent;
+using MuTraMIDI::ProgramChangeEvent;
 using MuTraMIDI::EventsList;
 using MuTraMIDI::MIDITrack;
 using MuTraMIDI::MIDIException;
@@ -65,14 +67,17 @@ namespace MuTraTrain {
   bool ExerciseSequence::load( const string& FileName )
   {
     bool Result = false;
-    clear();
     try
     {
       ifstream Ex( FileName );
       if( Ex.good() )
       {
 	string Name;
+	int StartThreshold = 30;
+	int StopThreshold = 60;
+	int VelocityThreshold = 64;
 	Ex >> Name >> TargetTracks >> Channels >> StartPoint >> StopPoint >> StartThreshold >> StopThreshold >> VelocityThreshold >> TempoSkew;
+	limits( StartThreshold, StopThreshold, VelocityThreshold );
 	if( !is_absolute_path_name( Name ) ) Name = prepend_path( absolute_dir_name( FileName ), Name );
 #ifdef MUTRA_DEBUG
 	cout << "Load play from " << Name << " tracks: " << TargetTracks << " channels: " << Channels << " [" << StartPoint << "-" << StopPoint << " limits: start: " << StartThreshold
@@ -81,6 +86,7 @@ namespace MuTraTrain {
 	clear();
 	Play = new MIDISequence( Name );
 	start();
+	division( Play->division() );
 	Play->play( *this );
 	adjust_length();
 #ifdef SHOW_WINDOWS_TAILS
@@ -140,6 +146,13 @@ namespace MuTraTrain {
       }
     }
   } // note_off( int, int, int )
+  void ExerciseSequence::program_change( int Channel, int Program ) {
+    if( Channels & ( 1 << Channel ) && TargetTracks & ( 1 << Track ) && ( StopPoint < 0 || Clock < StopPoint ) ) {
+      if( Channel < 0 || Channel >= 16 ) return;
+      if( OriginalStart < 0 ) Instruments[ Channel ] = Program;
+      else add_original_event( new ProgramChangeEvent( Channel, Program, clocks_to_us( Clock ) ) );
+    }
+  } // program_change( int, int )
   void ExerciseSequence::tempo( unsigned uSecForQuarter )
   {
 #if 0
@@ -171,13 +184,17 @@ namespace MuTraTrain {
       Tracks.front()->events().push_back( new EventsList( ClockFromStart ) );
       if( OriginalStart < 0 )
       {
+	OriginalStart = ClockFromStart;
+	OriginalLength = 0;
 #ifdef MUTRA_DEBUG
 	cout << "Add time signature " << Numerator << "/" << (1 << Denominator) << endl;
 #endif
+	Tracks.front()->events().back()->add( new TempoEvent( tempo() ) );
 	Tracks.front()->events().back()->add( new TimeSignatureEvent( Numerator, Denominator ) );
 	Tracks.front()->events().back()->add( new KeySignatureEvent( Tonal, Minor ) );
-	OriginalStart = ClockFromStart;
-	OriginalLength = 0;
+	for( int I = 0; I < 16; ++I )
+	  if( Channels & ( 1 << I ) && Instruments[ I ] >= 0 )
+	    Tracks.front()->events().back()->add( new ProgramChangeEvent( I, Instruments[ I ] ) );
       }
       else if( ClockFromStart - OriginalStart > OriginalLength )
 	OriginalLength = ClockFromStart - OriginalStart;
@@ -194,19 +211,17 @@ namespace MuTraTrain {
       if( NewEvent->status() == ChannelEvent::NoteOn ) {
 	PlayedStartuS = EvTime;
 	if( align_start() > 0 ) { //! \todo Make this ugly code clean.
-	  int BaruS = bar_us();
-	  int Offset = ( PlayedStartuS - align_start() ) % BaruS;
+	  int Align = bar_us();
+	  int Offset = ( PlayedStartuS - align_start() ) % Align;
 	  int OriginalToBar = clocks_to_us( OriginalStart % bar_clocks() );
-#define MUTRA_BEAT_ALIGN
-#ifdef MUTRA_BEAT_ALIGN
-	  int BeatuS = beat_us();
-	  int Diff = Offset - OriginalToBar;
-	  if( Diff % BeatuS > BeatuS / 1.5 ) Diff = Diff / BeatuS + 1;
-	  else Diff /= BeatuS;
-	  Offset += Diff * BeatuS;
-#endif // MUTRA_BEAT_ALIGN
 	  Offset -= OriginalToBar;
-	  if( Offset > BaruS / 1.5 ) Offset -= BaruS;
+#define MUTRA_DOUBLE_BEAT_ALIGN
+#ifdef MUTRA_DOUBLE_BEAT_ALIGN
+	  Align = beat_us() * 2;
+#endif // MUTRA_DOUBLE_BEAT_ALIGN
+	  Offset %= Align;
+	  if( Offset > 0 ) { if( Offset > Align / 2 ) Offset -= Align; }
+	  else if( -Offset > Align / 2 ) Offset += Align;
 	  cout << "Align to " << Offset << " µs, PlayedStart " << PlayedStartuS << " align: " << align_start() << " tempo: " << tempo() << " diff: " << PlayedStartuS - align_start() << endl;
 	  PlayedStartuS -= Offset;
 	}
@@ -295,18 +310,17 @@ namespace MuTraTrain {
 	if( Note.velocity_diff() > mStat.VelocityMax ) mStat.VelocityMax = Note.velocity_diff();
 	if( Note.velocity_diff() < mStat.VelocityMin ) mStat.VelocityMin = Note.velocity_diff();
       } //! \todo (below) Remove all access to the Original's member variables.
-    double Correction = Original.division() / 120.0;
-    if( abs( mStat.StartMax ) > Original.StartThreshold * Correction || abs( mStat.StartMin ) > Original.StartThreshold * Correction
-	|| abs( mStat.StopMax ) > Original.StopThreshold * Correction || abs( mStat.StopMin ) > Original.StopThreshold * Correction )
-      mStat.Result |= RythmError;
-    if( Correction > 0 ) {
-      mStat.StartMin /= Correction;
-      mStat.StartMax /= Correction;
-      mStat.StopMin /= Correction;
-      mStat.StopMax /= Correction;
+    double Correction = 1;
+    if( Original.division() != 0 ) {
+      Correction = 120.0 / Original.division();
+      mStat.StartMin *= Correction;
+      mStat.StartMax *= Correction;
+      mStat.StopMin *= Correction;
+      mStat.StopMax *= Correction;
     }
-    if( abs( mStat.VelocityMax ) > Original.VelocityThreshold || abs( mStat.VelocityMin ) > Original.VelocityThreshold )
-      mStat.Result |= VelocityError;
+    if( Original.limits().check_start( mStat.StartMax ) || Original.limits().check_start( mStat.StartMin )
+	|| Original.limits().check_stop( mStat.StopMax ) || Original.limits().check_stop( mStat.StopMin ) ) mStat.Result |= RythmError;
+    if( Original.limits().check_velocity( mStat.VelocityMax ) || Original.limits().check_velocity( mStat.VelocityMin ) ) mStat.Result |= VelocityError;
     return mStat.Result;
   } // compare( const ExerciseSequence& )
 
@@ -325,6 +339,7 @@ namespace MuTraTrain {
     TracksNum = 0;
     add_track(); // Exercise (original)
     OriginalStart = -1;
+    for( int I = 0; I < 16; ++I ) Instruments[ I ] = -1;
     reset();
   } // clear()
 

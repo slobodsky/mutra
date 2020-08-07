@@ -18,7 +18,14 @@ namespace MuTraTrain {
     int StopLate;	      // Максимальное запаздывание начала ноты
     int VelocityHigher; // Максимальное отклонение силы ноты вверх
     int VelocityLower;  // Максимальное отклонение силы ноты вниз
-    ExerciseLimits( int StartFore0, int StartLate0, int StopFore0, int StopLate0, int VelocityHigher0, int VelocityLower0 );
+    ExerciseLimits( int StartFore0 = INT_MAX, int StartLate0 = INT_MAX, int StopFore0 = INT_MAX, int StopLate0 = INT_MAX, int VelocityLower0 = 127, int VelocityHigher0 = 127 )
+      : StartFore( StartFore0 ), StartLate( StartLate0 ), StopFore( StopFore0 ), StopLate( StopLate0 ), VelocityHigher( VelocityHigher0 ), VelocityLower( VelocityLower0 ) {}
+    int check_start( int Diff, double Correction = 1 ) const { return Diff*Correction > StartLate ? 1 : ( -Diff*Correction > StartFore ? -1 : 0 ); }
+    int check_start( int Original, int Played, double Correction = 1 ) const { return check_start( Played - Original, Correction ); }
+    int check_stop( int Diff, double Correction = 1 ) const { return Diff*Correction > StopLate ? 1 : ( -Diff*Correction > StopFore ? -1 : 0 ); }
+    int check_stop( int Original, int Played, double Correction = 1 ) const { return check_stop( Played - Original, Correction ); }
+    int check_velocity( int VelocityDiff ) const { return VelocityDiff > VelocityHigher ? 1 : ( -VelocityDiff > VelocityLower ? -1 : 0 ); }
+    int check_velocity( int Original, int Played ) const { return check_velocity( Played - Original ); }
   }; // ExerciseLimits
 
   //! \todo Сделать отдельный заполнитель, а это не должно быть секвеесером.
@@ -107,25 +114,24 @@ namespace MuTraTrain {
     bool Minor;
 
     // Параметры? упражнения
-    int StartThreshold;		// Предельное отклонение начала ноты (в единицах времени файла, MIDI-clockах)
-    int StopThreshold;		// Предельное отклонение окончания ноты
-    int VelocityThreshold;	// Предельное отклонение силы ноты
+    const ExerciseLimits& limits() const { return mLimits; }
+    void limits( const ExerciseLimits& NewLimits ) { mLimits = NewLimits; }
+    void limits( int StartThreshold, int StopThreshold, int VelocityThreshold )
+    { mLimits = ExerciseLimits( StartThreshold, StartThreshold, StopThreshold, StopThreshold, VelocityThreshold, VelocityThreshold ); }    
 
     // Пьеса / упражнение
     MuTraMIDI::MIDISequence* Play;
-    OriginalNote::Sequence mOriginal;
-    std::vector<TryResult*> mPlayed;
     int StartPoint;		// Начало играемого участка в MIDI-clockах
     int StopPoint;		// Окончание играемого участка
     double TempoSkew;
     int OriginalStart;
     int OriginalLength;
+    int Instruments[16]; // Инструменты, которые будут установлены для каждого канала.
     MuTraMIDI::Event::TimeuS PlayedStartuS;
     MuTraMIDI::Event::TimeuS AlignTimeuS;
 
     ExerciseSequence( unsigned Channels0 = 0xF, unsigned TargetTracks0 = 0xFFFF )
-      : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), Tonal( 0 ), Minor( false ), StartThreshold( 45 ), StopThreshold( 45 ), VelocityThreshold( 64 ),
-	Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ), OriginalStart( -1 ), OriginalLength( -1 ), PlayedStartuS( 0 ), AlignTimeuS( -1 ), Dump( "beat.dump" )
+      : Channels( Channels0 ), TargetTracks( TargetTracks0 ), Numerator( 4 ), Denominator( 4 ), Tonal( 0 ), Minor( false ), Play( nullptr ), StartPoint( 0 ), StopPoint( -1 ), TempoSkew( 1.0 ),OriginalStart( -1 ), OriginalLength( -1 ), PlayedStartuS( 0 ), AlignTimeuS( -1 ), mLimits( 30, 30, 60, 60, 64, 64 ), Dump( "beat.dump" )
     { Type = 1; }
     ~ExerciseSequence() { clear(); }
     bool load( const std::string& FileName );
@@ -149,6 +155,7 @@ namespace MuTraTrain {
     void reset();
     void note_on( int Channel, int Note, int Velocity );
     void note_off( int Channel, int Note, int Velocity );
+    void program_change( int Channel, int Program );
     unsigned tempo() const { return static_cast<unsigned>( Tempo / TempoSkew ); }
     void tempo( unsigned uSecForQuarter );
     unsigned original_tempo() const { return Tempo; }
@@ -176,7 +183,12 @@ namespace MuTraTrain {
     void clear();
     void rescan();
     void new_take();
-    std::ofstream Dump;
+  private:
+    ExerciseLimits mLimits;
+    OriginalNote::Sequence mOriginal;
+    std::vector<TryResult*> mPlayed;
+
+    std::ofstream Dump; //!< \todo Remove this.
   }; // ExerciseSequence
 } // MuTraTrain
 

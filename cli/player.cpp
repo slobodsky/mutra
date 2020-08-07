@@ -14,7 +14,7 @@ using MuTraMIDI::MIDIBackend;
 int main( int argc, char* argv[] )
 {
   const char* LightPortName = nullptr; // "/dev/ttyACM0";
-  Sequencer* Seq = MIDIBackend::get_manager().get_sequencer();
+  Sequencer* Seq = MIDIBackend::get_manager().get_sequencer( "alsa://128" );
   MultiSequencer Mult;
   Mult.add( Seq );
   try {
