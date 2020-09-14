@@ -916,13 +916,11 @@ namespace MuTraWidgets {
     return Item::data( Col );
   } // data( int ) const
   QVariant StatisticsModel::StatsItem::icon() const {
-    switch( mStat.Result ) {
-    case ExerciseSequence::NoError: return QIcon::fromTheme( "gtk-yes" );
-    case ExerciseSequence::NoteError: return QIcon::fromTheme( "gtk-no" );
-    case ExerciseSequence::RythmError: return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
-    case ExerciseSequence::VelocityError: return QIcon::fromTheme( "preferences-desktop-notification-bell" );
-    case ExerciseSequence::EmptyPlay: return QIcon::fromTheme( "user-offline" );
-    }
+    if( mStat.Result == ExerciseSequence::NoError ) return QIcon::fromTheme( "gtk-yes" );
+    if( mStat.Result & ExerciseSequence::NoteError ) return QIcon::fromTheme( "gtk-no" );
+    if( mStat.Result & ExerciseSequence::RythmError ) return QIcon::fromTheme( "preferences-desktop-thunderbolt" );
+    if( mStat.Result & ExerciseSequence::VelocityError ) return QIcon::fromTheme( "preferences-desktop-notification-bell" );
+    if( mStat.Result & ExerciseSequence::EmptyPlay ) return QIcon::fromTheme( "user-offline" );
     return Item::icon();
   } // icon() const
   

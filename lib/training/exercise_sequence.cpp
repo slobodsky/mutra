@@ -242,7 +242,7 @@ namespace MuTraTrain {
     Ev.print( std::cout );
     std::cout << std::endl;
 #endif
-    if( Ev.status() == ChannelEvent::NoteOn || ( Ev.status() == ChannelEvent::NoteOff && PlayedStartuS > 0 ) )
+    if( ( Ev.status() == ChannelEvent::NoteOn && ( PlayedStartuS > 0 || static_cast<const NoteEvent&>( Ev ).velocity() > 0 )) || ( Ev.status() == ChannelEvent::NoteOff && PlayedStartuS > 0 ) )
       add_played_event( Ev.clone() );
   } // event_received( const Event& )
   bool ExerciseSequence::beat( Event::TimeuS Time )
