@@ -1,7 +1,7 @@
 Source: music-trainer
 Priority: optional
 Maintainer: Nick Slobodsky <software@slobodsky.ru>
-Build-Depends: debhelper-compat (= 12)
+Build-Depends: debhelper-compat (= 11)
 Standards-Version: 4.4.0
 Section: education
 Homepage: http://software.slobodsky.ru/music_trainer
