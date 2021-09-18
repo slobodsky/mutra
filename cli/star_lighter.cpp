@@ -15,6 +15,7 @@ using std::flush;
 using std::sort;
 using std::stringstream;
 using MuTraMIDI::note_name;
+//#define DEBUG_SERIAL
 
 void* StarLighter::port_worker( void* This ) {
   StarLighter& Li = *static_cast<StarLighter*>( This );
@@ -50,13 +51,13 @@ void* StarLighter::port_worker( void* This ) {
 	    write( Port, "[paused]\n", 9 );
 	    fsync( Port );
 	    Paused = true;
-#if 0
+#ifdef DEBUG_SERIAL
 	    cout << ">> Paused." << endl;
 #endif
 	    break;
 	  }
 	  else if( *Pos == char(17) ) {
-#if 0
+#ifdef DEBUG_SERIAL
 	    cout << ">> Resume." << endl;
 #endif
 	    Paused = false;
@@ -116,7 +117,7 @@ StarLighter::~StarLighter() {
   pthread_join( mPortThread, nullptr );
   if( tPort >= 0 ) close( tPort );
 } // ~StarLighter()
-const int MaxStars = 100;
+const int MaxStars = 150;
 void StarLighter::note_on( int Channel, int Note, int Velocity ) {
   if( Velocity > 0 ) {
     if( Stars.size() >= MaxStars ) {
@@ -205,7 +206,7 @@ void StarLighter::send_command( const string& Command ) {
   mCount += Command.size();
 }
 void StarLighter::data_received( const string& Data ) {
-#if 0
+#ifdef DEBUG_SERIAL
   cout << "=> " << Data << flush;
 #endif
 }

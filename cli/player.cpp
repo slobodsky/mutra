@@ -13,13 +13,17 @@ using MuTraMIDI::MIDIBackend;
 
 int main( int argc, char* argv[] )
 {
-  const char* LightPortName = nullptr; // "/dev/ttyACM0";
+  const char* LightPortName = nullptr; // "/dev/ttyUSB0"; // "/dev/ttyACM0";
   Sequencer* Seq = MIDIBackend::get_manager().get_sequencer( "alsa://128" );
   MultiSequencer Mult;
   Mult.add( Seq );
   try {
     for( int I = 1; I < argc; I++ )
     {
+      if( argv[ I ][ 0 ] == '-' && argv[ I ][ 1 ] == 'p' ) {
+	LightPortName = argv[ I ]+2;
+	continue;
+      }
       MIDISequence Play( argv[ I ] );
       //LinuxSequencer Seq( cout );
 #ifdef MUTRA_DEBUG
@@ -34,8 +38,9 @@ int main( int argc, char* argv[] )
 	Mult.add( &Light );
 	Light.low( Play.low() );
 	Light.high( Play.high() );
+	Play.play( Mult );
       }
-      Play.play( Mult );
+      else Play.play( Mult );
 #if 0
       cerr << "\tСреднее отклонение: " << Seq->average_diff()
 	   << "\n\tМаксимальное: " << Seq->max_diff()
